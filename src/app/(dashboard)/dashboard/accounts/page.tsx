@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Cookies from "js-cookie"; // <-- Import js-cookie
 
 type User = {
   user_id: string;
@@ -13,7 +14,10 @@ type User = {
 
 export default function AccountsPage() {
   const router = useRouter();
+  
+  // State untuk Satpam (Proteksi Halaman)
   const [isAuthorized, setIsAuthorized] = useState(false);
+
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,7 +29,7 @@ export default function AccountsPage() {
   const [formPassword, setFormPassword] = useState("");
   const [formRole, setFormRole] = useState("operator");
   const [formStatus, setFormStatus] = useState("aktif");
-  const [isSaving, setIsSaving] = useState(false); // State Loading Simpan
+  const [isSaving, setIsSaving] = useState(false);
 
   // State Modal Konfirmasi Hapus
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -34,19 +38,17 @@ export default function AccountsPage() {
   // State Toast Notifikasi
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Proteksi Halaman
+  // SATPAM: Cek cookie sebelum menampilkan halaman
   useEffect(() => {
-    const session = localStorage.getItem("user_session");
+    const session = Cookies.get("user_session");
+    
     if (!session) {
-      router.push("/login");
+      // Jika tidak ada cookie, tendang ke login
+      router.replace("/login");
     } else {
-      const user = JSON.parse(session);
-      if (user.role !== "admin") {
-        router.push("/dashboard");
-      } else {
-        setIsAuthorized(true);
-        fetchUsers();
-      }
+      // Jika ada, izinkan halaman dimuat dan ambil data
+      setIsAuthorized(true);
+      fetchUsers();
     }
   }, [router]);
 
@@ -85,7 +87,6 @@ export default function AccountsPage() {
     }
   }
 
-  // Buka Modal Tambah
   function openAddModal() {
     setEditId(null);
     setFormFullName("");
@@ -96,18 +97,16 @@ export default function AccountsPage() {
     setIsModalOpen(true);
   }
 
-  // Buka Modal Edit
   function openEditModal(user: User) {
     setEditId(user.user_id);
     setFormFullName(user.full_name);
     setFormUsername(user.username);
-    setFormPassword(""); // Kosongkan password
+    setFormPassword(""); 
     setFormRole(user.role);
     setFormStatus(user.status);
     setIsModalOpen(true);
   }
 
-  // Proses Simpan (Tambah / Edit)
   async function handleSaveUser(e: React.FormEvent) {
     e.preventDefault();
     
@@ -161,7 +160,6 @@ export default function AccountsPage() {
     }
   }
 
-  // Proses Hapus
   async function confirmDelete() {
     if (!deleteTarget) return;
     setIsDeleting(true);
@@ -195,10 +193,11 @@ export default function AccountsPage() {
     }
   }
 
+  // JIKA BELUM TERVERIFIKASI, TAMPILKAN LAYAR INI SEBENTAR
   if (!isAuthorized) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-slate-500">Memeriksa sesi...</p>
+        <p className="text-slate-500">Memeriksa akses...</p>
       </div>
     );
   }
