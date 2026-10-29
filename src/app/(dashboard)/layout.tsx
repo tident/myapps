@@ -1,9 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Sidebar from "@/app/components/Sidebar";
-import Navbar from "@/app/components/Navbar";
+import DashboardShell from "@/app/components/DashboardShell";
 
-// Memberi tahu Next.js bahwa halaman ini butuh data per-request (cookie)
 export const instant = false;
 
 export default async function DashboardLayout({
@@ -20,16 +18,6 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Jika ada, render layout (Sidebar & Navbar) dan isi halamannya
-  return (
-    <div className="flex h-screen bg-slate-50">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Navbar />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  // Jika ada, render DashboardShell (Sidebar + Navbar) dan isi halamannya
+  return <DashboardShell>{children}</DashboardShell>;
 }
