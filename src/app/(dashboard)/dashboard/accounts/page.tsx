@@ -41,14 +41,18 @@ export default function AccountsPage() {
   // SATPAM: Cek cookie sebelum menampilkan halaman
   useEffect(() => {
     const session = Cookies.get("user_session");
-    
     if (!session) {
-      // Jika tidak ada cookie, tendang ke login
       router.replace("/login");
     } else {
-      // Jika ada, izinkan halaman dimuat dan ambil data
-      setIsAuthorized(true);
-      fetchUsers();
+      const user = JSON.parse(session);
+      
+      // CEK ROLE: Jika bukan admin, tendang ke dashboard utama!
+      if (user.role !== "admin") {
+        router.replace("/dashboard");
+      } else {
+        setIsAuthorized(true);
+        fetchUsers();
+      }
     }
   }, [router]);
 

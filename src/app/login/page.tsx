@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie"; // <-- Import js-cookie
+import Image from "next/image";
+import Cookies from "js-cookie";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,10 +42,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (data.status === "success") {
-        // Simpan ke Cookie menggunakan js-cookie
         Cookies.set("user_session", JSON.stringify(data.user), { expires: 1, path: "/" });
-        
-        // Arahkan ke dashboard
         router.push("/dashboard");
       } else {
         setErrorMessage(data.message || "Login gagal.");
@@ -59,8 +57,21 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full bg-white">
       {/* SISI KIRI: FORM LOGIN */}
-      <div className="flex w-full flex-col justify-center px-8 sm:px-16 md:w-1/2 lg:px-24 xl:px-32">
-        <div className="mx-auto w-full max-w-md">
+      <div className="flex w-full flex-col justify-between px-8 py-8 sm:px-16 md:w-1/2 lg:px-24 xl:px-32">
+        {/* Bagian Utama (Logo + Form) */}
+        <div className="my-auto w-full max-w-md mx-auto py-6">
+          {/* 1. LOGO */}
+              <div className="mb-6">
+                <Image
+                  src="/fixcombine.png"
+                  alt="Logo"
+                  width={300}
+                  height={100}
+                  priority
+                  className="h-20 w-auto object-contain object-left"
+                />
+              </div>
+
           <h1 className="mb-2 text-3xl font-bold text-slate-800">Sign In</h1>
           <p className="mb-8 text-sm text-slate-500">
             Enter your username and password to sign in!
@@ -108,7 +119,6 @@ export default function LoginPage() {
                   className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-4 text-slate-400 hover:text-slate-600"
                   aria-label="Toggle password visibility"
                 >
-                  {/* Ikon Mata (SVG) */}
                   {showPassword ? (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -157,16 +167,23 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
+        {/* 2. FOOTER COPYRIGHT */}
+        <div className="text-center text-xs text-slate-500 font-medium pt-4">
+          2026 @PIW STUDIO
+        </div>
       </div>
 
       {/* SISI KANAN: GAMBAR */}
-      <div className="relative hidden w-1/2 bg-slate-900 md:block bg-[url('/login-bgnew.png')] bg-cover bg-center">
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-12 text-center text-white">
-           <h2 className="text-3xl font-bold">Dashboard App</h2>
-           <p className="mt-4 text-slate-200">
-             Area ini dicadangkan untuk gambar Anda.
-           </p>
-        </div>
+      <div className="relative hidden w-1/2 overflow-hidden bg-white md:block">
+        <Image
+          src="/piwstudio.png"
+          alt="Login Background"
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover object-center"
+        />
       </div>
     </div>
   );

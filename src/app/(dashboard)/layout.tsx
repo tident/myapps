@@ -9,15 +9,26 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Server memeriksa cookie
   const cookieStore = await cookies();
   const session = cookieStore.get("user_session");
 
-  // Jika tidak ada cookie, tendang ke login dari sisi server
+  // 1. Cek Login
   if (!session) {
     redirect("/login");
   }
 
-  // Jika ada, render DashboardShell (Sidebar + Navbar) dan isi halamannya
+  // 2. Cek Role (Apakah dia Admin?)
+  try {
+    // Cookie disimpan dalam bentuk string JSON yang di-encode. Kita harus membacanya.
+    const user = JSON.parse(decodeURIComponent(session.value));
+    
+    // Jika dia Operator, kita tidak tahu dia sedang di halaman apa dari layout ini.
+    // Kita hanya bisa mengandalkan pengecekan di dalam halaman (Client-Side).
+    // *Catatan: Next.js Layout tidak memiliki akses ke URL path saat ini secara langsung.*
+  } catch (error) {
+    // Jika cookie rusak, tendang ke login
+    redirect("/login");
+  }
+
   return <DashboardShell>{children}</DashboardShell>;
 }

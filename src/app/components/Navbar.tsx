@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Cookies from "js-cookie";
 
 export default function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [fullName, setFullName] = useState("Memuat...");
 
   useEffect(() => {
@@ -21,6 +22,12 @@ export default function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
     router.push("/login");
   };
 
+  // Logika untuk menentukan judul berdasarkan URL
+  let pageTitle = "Overview"; // Ubah dari "Halaman Dashboard"
+  if (pathname === "/dashboard") pageTitle = "Overview";
+  if (pathname === "/dashboard/accounts") pageTitle = "Manajemen Akun";
+  if (pathname === "/dashboard/profile") pageTitle = "Profile Saya";
+
   return (
     <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
       <div className="flex items-center space-x-4">
@@ -33,7 +40,9 @@ export default function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
         </button>
-        <h2 className="text-lg font-semibold text-slate-800">Halaman Dashboard</h2>
+        
+        {/* Judul Halaman Dinamis */}
+        <h2 className="text-lg font-semibold text-slate-800">{pageTitle}</h2>
       </div>
       <div className="flex items-center space-x-2 sm:space-x-4">
         <span className="hidden text-sm font-medium text-slate-600 sm:block">{fullName}</span>
