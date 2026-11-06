@@ -20,6 +20,12 @@ export default function DataDashboardPage() {
   // State untuk Filter Bulan
   const [selectedMonth, setSelectedMonth] = useState("");
 
+  // State untuk Collapse per Section
+  const [isEsensialOpen, setIsEsensialOpen] = useState(false);
+  const [isPerilakuOpen, setIsPerilakuOpen] = useState(false);
+  const [isTrenOpen, setIsTrenOpen] = useState(false);
+  const [isTerbesarOpen, setIsTerbesarOpen] = useState(false);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -62,19 +68,21 @@ export default function DataDashboardPage() {
   };
 
   // === LOGIKA FILTER BULAN UTAMA ===
-  // 1. Filter data mentah berdasarkan bulan yang dipilih
   const filteredData = useMemo(() => {
     if (selectedMonth === "") return data;
     return data.filter((item) => item.bulan === selectedMonth);
   }, [data, selectedMonth]);
 
-  // Daftar bulan unik untuk dropdown
   const availableMonths = useMemo(() => {
     const months = data.map((item) => item.bulan);
-    return [...new Set(months)].filter(Boolean);
+    const unique = [...new Set(months)].filter(Boolean);
+    
+    // Urutkan berdasarkan bulan kalender
+    const monthOrder = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    return unique.sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
   }, [data]);
 
-  // === 1. KARTU METRIK UTAMA (Berdasarkan filteredData) ===
+  // === 1. KARTU METRIK UTAMA ===
   const metrics = useMemo(() => {
     let totalPengeluaran = 0;
     const uniqueDates = new Set<string>();
@@ -95,11 +103,10 @@ export default function DataDashboardPage() {
     };
   }, [filteredData]);
 
-  // === 2. ANALISIS BULANAN (Grafik Batang) ===
+  // === 2. ANALISIS BULANAN ===
   const analisisBulanan = useMemo(() => {
     const bulanMap: Record<string, { total: number, items: number, days: Set<string>, maxItem: DataItem | null }> = {};
 
-    // Disini kita tetap pakai 'data' asli agar grafik perbandingan bulan selalu lengkap
     data.forEach((item) => {
       const b = item.bulan;
       if (!bulanMap[b]) {
@@ -116,7 +123,6 @@ export default function DataDashboardPage() {
       }
     });
 
-    // Menggunakan array bulan standar untuk sorting
     const monthOrder = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     
     return Object.entries(bulanMap).map(([bulan, d]) => ({
@@ -128,7 +134,7 @@ export default function DataDashboardPage() {
     })).sort((a, b) => monthOrder.indexOf(a.bulan) - monthOrder.indexOf(b.bulan));
   }, [data]);
 
-  // === 3. LEADERBOARD TOP 5 (Berdasarkan filteredData) ===
+  // === 3. LEADERBOARD TOP 5 ===
   const getTop5 = (key: keyof DataItem) => {
     const map: Record<string, number> = {};
     filteredData.forEach((item) => {
@@ -156,14 +162,12 @@ export default function DataDashboardPage() {
     let esensial = 0;
     let lifestyle = 0;
     
-    // Daftar kata kunci kategori (bisa disesuaikan)
     const esensialKeywords = ["makan", "minum", "transport", "belanja", "kebutuhan", "pokok"];
     
     filteredData.forEach(item => {
       const harga = Number(item.harga) || 0;
       const kategori = item.kategori.toLowerCase();
       
-      // Cek apakah masuk esensial
       const isEsensial = esensialKeywords.some(k => kategori.includes(k));
       
       if (isEsensial) {
@@ -190,9 +194,9 @@ export default function DataDashboardPage() {
     filteredData.forEach(item => {
       const harga = Number(item.harga) || 0;
       const d = new Date(item.date);
-      if (isNaN(d.getTime())) return; // Skip jika tanggal tidak valid
+      if (isNaN(d.getTime())) return;
       
-      const day = d.getDay(); // 0 = Minggu, 6 = Sabtu
+      const day = d.getDay();
       if (day === 0 || day === 6) {
         weekendTotal += harga;
       } else {
@@ -204,13 +208,22 @@ export default function DataDashboardPage() {
   }, [filteredData]);
 
 
-  if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-slate-500">Memuat data analitik...</div>;
+ if (isLoading) {
+    return (
+      <div className="flex h-full min-h-[60vh] flex-col items-center justify-center space-y-4">
+        {/* Animasi Spinner */}
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
+        <p className="text-slate-500 font-medium">Memuat data analitik...</p>
+      </div>
+    );
   }
 
-  if (data.length === 0) {
-    return <div className="flex h-full items-center justify-center text-slate-500">Belum ada data di Data Center. Silakan Load Data terlebih dahulu.</div>;
-  }
+  // Reusable Icon Component for Collapse
+  const ChevronIcon = ({ isOpen }: { isOpen: boolean }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  );
 
   return (
     <div className="space-y-6 pb-10">
@@ -245,10 +258,8 @@ export default function DataDashboardPage() {
         </div>
       </div>
 
-      {/* 1. KARTU METRIK UTAMA */}
+      {/* 1. KARTU METRIK UTAMA (Tidak di-collapse) */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        
-        {/* Kartu 1: Total Pengeluaran */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
@@ -264,7 +275,6 @@ export default function DataDashboardPage() {
           <p className="mt-4 text-xs text-slate-400">Akumulasi keseluruhan</p>
         </div>
 
-        {/* Kartu 2: Total Pertemuan (Dengan Badge Transaksi) */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
@@ -273,7 +283,6 @@ export default function DataDashboardPage() {
                 <p className="text-3xl font-bold text-slate-800">{metrics.totalPertemuan}</p>
                 <span className="text-sm font-medium text-slate-500">Hari</span>
               </div>
-              {/* Badge Total Transaksi */}
               <div className="mt-3 inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
                 {metrics.totalTransaksi} Total Transaksi
               </div>
@@ -286,7 +295,6 @@ export default function DataDashboardPage() {
           </div>
         </div>
 
-        {/* Kartu 3: Rata-Rata Harian */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between">
             <div>
@@ -303,127 +311,158 @@ export default function DataDashboardPage() {
         </div>
       </div>
 
-      {/* 2. BREAKDOWN LIFESTYLE & WEEKEND */}
+      {/* 2 & 3. COLLAPSIBLE SECTIONS (Esensial & Perilaku) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         
-        {/* Esensial vs Lifestyle */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-6 text-lg font-bold text-slate-800">Esensial vs Lifestyle</h2>
-          <div className="space-y-5">
-            {/* Esensial */}
-            <div>
-              <div className="mb-1 flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Esensial (Makan, Transport)</span>
-                <span className="font-bold text-emerald-600">{ratioAnalysis.persenEsensial}%</span>
+        {/* Esensial vs Lifestyle (Collapsible) */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
+          <button 
+            onClick={() => setIsEsensialOpen(!isEsensialOpen)}
+            className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors rounded-t-xl"
+          >
+            <h2 className="text-lg font-bold text-slate-800">Esensial vs Lifestyle</h2>
+            <ChevronIcon isOpen={isEsensialOpen} />
+          </button>
+          
+          {isEsensialOpen && (
+            <div className="p-6 pt-0 space-y-5 flex-1">
+              <div>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="font-semibold text-slate-700">Esensial (Makan, Transport)</span>
+                  <span className="font-bold text-emerald-600">{ratioAnalysis.persenEsensial}%</span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full bg-emerald-500" style={{ width: `${ratioAnalysis.persenEsensial}%` }}></div>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">{formatRupiah(ratioAnalysis.esensial)}</p>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full bg-emerald-500" style={{ width: `${ratioAnalysis.persenEsensial}%` }}></div>
-              </div>
-              <p className="mt-1 text-xs text-slate-400">{formatRupiah(ratioAnalysis.esensial)}</p>
-            </div>
 
-            {/* Lifestyle */}
-            <div>
-              <div className="mb-1 flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Lifestyle (Nonton, Jajan, dll)</span>
-                <span className="font-bold text-rose-600">{ratioAnalysis.persenLifestyle}%</span>
+              <div>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="font-semibold text-slate-700">Lifestyle (Nonton, Jajan, dll)</span>
+                  <span className="font-bold text-rose-600">{ratioAnalysis.persenLifestyle}%</span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full bg-rose-500" style={{ width: `${ratioAnalysis.persenLifestyle}%` }}></div>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">{formatRupiah(ratioAnalysis.lifestyle)}</p>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full bg-rose-500" style={{ width: `${ratioAnalysis.persenLifestyle}%` }}></div>
-              </div>
-              <p className="mt-1 text-xs text-slate-400">{formatRupiah(ratioAnalysis.lifestyle)}</p>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Weekend vs Weekday */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-6 text-lg font-bold text-slate-800">Perilaku Belanja (Waktu)</h2>
-          <div className="space-y-5">
-            {/* Weekday */}
-            <div>
-              <div className="mb-1 flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Hari Kerja (Senin-Jumat)</span>
-                <span className="font-bold text-blue-600">{formatRupiah(timeAnalysis.weekdayTotal)}</span>
-              </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                <div 
-                  className="h-full bg-blue-500" 
-                  style={{ width: `${(timeAnalysis.weekdayTotal / (timeAnalysis.weekdayTotal + timeAnalysis.weekendTotal || 1)) * 100}%` }}>
+        {/* Weekend vs Weekday (Collapsible) */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
+          <button 
+            onClick={() => setIsPerilakuOpen(!isPerilakuOpen)}
+            className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors rounded-t-xl"
+          >
+            <h2 className="text-lg font-bold text-slate-800">Perilaku Belanja (Waktu)</h2>
+            <ChevronIcon isOpen={isPerilakuOpen} />
+          </button>
+          
+          {isPerilakuOpen && (
+            <div className="p-6 pt-0 space-y-5 flex-1">
+              <div>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="font-semibold text-slate-700">Hari Kerja (Senin-Jumat)</span>
+                  <span className="font-bold text-blue-600">{formatRupiah(timeAnalysis.weekdayTotal)}</span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div 
+                    className="h-full bg-blue-500" 
+                    style={{ width: `${(timeAnalysis.weekdayTotal / (timeAnalysis.weekdayTotal + timeAnalysis.weekendTotal || 1)) * 100}%` }}>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Weekend */}
-            <div>
-              <div className="mb-1 flex justify-between text-sm">
-                <span className="font-semibold text-slate-700">Akhir Pekan (Sabtu-Minggu)</span>
-                <span className="font-bold text-orange-500">{formatRupiah(timeAnalysis.weekendTotal)}</span>
-              </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                <div 
-                  className="h-full bg-orange-500" 
-                  style={{ width: `${(timeAnalysis.weekendTotal / (timeAnalysis.weekdayTotal + timeAnalysis.weekendTotal || 1)) * 100}%` }}>
+              <div>
+                <div className="mb-1 flex justify-between text-sm">
+                  <span className="font-semibold text-slate-700">Akhir Pekan (Sabtu-Minggu)</span>
+                  <span className="font-bold text-orange-500">{formatRupiah(timeAnalysis.weekendTotal)}</span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div 
+                    className="h-full bg-orange-500" 
+                    style={{ width: `${(timeAnalysis.weekendTotal / (timeAnalysis.weekdayTotal + timeAnalysis.weekendTotal || 1)) * 100}%` }}>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* 3. ANALISIS BULANAN */}
+      {/* 4 & 5. COLLAPSIBLE SECTIONS (Tren & Terbesar) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Blok 1: Grafik Batang Sederhana */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-6 text-lg font-bold text-slate-800">Tren Pengeluaran Per Bulan</h2>
-          <div className="space-y-4">
-            {analisisBulanan.map((item) => {
-              const maxTotal = Math.max(...analisisBulanan.map(b => b.total));
-              const percentage = (item.total / maxTotal) * 100;
-              return (
-                <div key={item.bulan}>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span className="font-semibold text-slate-700">{item.bulan}</span>
-                    <span className="text-slate-500">{formatRupiah(item.total)}</span>
+        
+        {/* Tren Pengeluaran Per Bulan (Collapsible) */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
+          <button 
+            onClick={() => setIsTrenOpen(!isTrenOpen)}
+            className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors rounded-t-xl"
+          >
+            <h2 className="text-lg font-bold text-slate-800">Tren Pengeluaran Per Bulan</h2>
+            <ChevronIcon isOpen={isTrenOpen} />
+          </button>
+          
+          {isTrenOpen && (
+            <div className="p-6 pt-0 space-y-4 flex-1">
+              {analisisBulanan.map((item) => {
+                const maxTotal = Math.max(...analisisBulanan.map(b => b.total));
+                const percentage = (item.total / maxTotal) * 100;
+                return (
+                  <div key={item.bulan}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="font-semibold text-slate-700">{item.bulan}</span>
+                      <span className="text-slate-500">{formatRupiah(item.total)}</span>
+                    </div>
+                    <div className="h-4 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${percentage}%` }}></div>
+                    </div>
+                    <div className="mt-1 flex justify-between text-xs text-slate-400">
+                      <span>{item.items} Item</span>
+                      <span>{item.days} Hari Aktif</span>
+                    </div>
                   </div>
-                  <div className="h-4 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${percentage}%` }}></div>
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs text-slate-400">
-                    <span>{item.items} Item</span>
-                    <span>{item.days} Hari Aktif</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Blok 2: Pengeluaran Terbesar Per Bulan */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-bold text-slate-800">Pengeluaran Terbesar Per Bulan</h2>
-          <div className="space-y-4">
-            {analisisBulanan.map((item) => (
-              item.maxItem && (
-                <div key={item.bulan} className="flex flex-col rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{item.bulan}</span>
-                    <span className="text-sm font-bold text-slate-800">{formatRupiah(Number(item.maxItem.harga))}</span>
+        {/* Pengeluaran Terbesar Per Bulan (Collapsible) */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
+          <button 
+            onClick={() => setIsTerbesarOpen(!isTerbesarOpen)}
+            className="flex items-center justify-between p-6 cursor-pointer hover:bg-slate-50 transition-colors rounded-t-xl"
+          >
+            <h2 className="text-lg font-bold text-slate-800">Pengeluaran Terbesar Per Bulan</h2>
+            <ChevronIcon isOpen={isTerbesarOpen} />
+          </button>
+          
+          {isTerbesarOpen && (
+            <div className="p-6 pt-0 space-y-4 flex-1">
+              {analisisBulanan.map((item) => (
+                item.maxItem && (
+                  <div key={item.bulan} className="flex flex-col rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">{item.bulan}</span>
+                      <span className="text-sm font-bold text-slate-800">{formatRupiah(Number(item.maxItem.harga))}</span>
+                    </div>
+                    <p className="font-semibold text-slate-800">{item.maxItem.nama_item}</p>
+                    <p className="text-xs text-slate-500">{item.maxItem.aktivitas} • {item.maxItem.tempat}</p>
+                    <p className="mt-1 text-xs text-slate-400">{item.maxItem.date}</p>
                   </div>
-                  <p className="font-semibold text-slate-800">{item.maxItem.nama_item}</p>
-                  <p className="text-xs text-slate-500">{item.maxItem.aktivitas} • {item.maxItem.tempat}</p>
-                  <p className="mt-1 text-xs text-slate-400">{item.maxItem.date}</p>
-                </div>
-              )
-            ))}
-          </div>
+                )
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 4. LEADERBOARD TOP 5 */}
+      {/* 6. LEADERBOARD TOP 5 (Tidak di-collapse agar selalu terlihat) */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        
-        {/* Top 5 Kategori */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-bold text-slate-800">Top 5 Kategori</h2>
           <div className="space-y-4">
@@ -441,7 +480,6 @@ export default function DataDashboardPage() {
           </div>
         </div>
 
-        {/* Top 5 Tempat */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-bold text-slate-800">Top 5 Tempat Terfavorit</h2>
           <div className="space-y-4">
@@ -459,7 +497,6 @@ export default function DataDashboardPage() {
           </div>
         </div>
 
-        {/* Top 5 Aktivitas */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-bold text-slate-800">Top 5 Aktivitas Termahal</h2>
           <div className="space-y-4">
@@ -476,7 +513,6 @@ export default function DataDashboardPage() {
             ))}
           </div>
         </div>
-
       </div>
 
     </div>

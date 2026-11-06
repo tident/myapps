@@ -23,10 +23,14 @@ export default function DataCenterPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // State untuk Search & Filter
+  // State untuk Pencarian & Filter
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBulan, setFilterBulan] = useState("");
   const [filterKategori, setFilterKategori] = useState("");
+
+  // State untuk Paginasi
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // State untuk konfirmasi hapus
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -41,12 +45,16 @@ export default function DataCenterPage() {
     fetchLocalData();
   }, []);
 
+  // Reset halaman ke 1 setiap kali filter/pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterBulan, filterKategori, itemsPerPage]);
+
   function showToast(type: "success" | "error", message: string) {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
   }
 
-  // 1. Ambil data yang ADA DI DATABASE KITA (Sheet DataCenter)
   async function fetchLocalData() {
     setIsLoading(true);
     try {
@@ -80,7 +88,6 @@ export default function DataCenterPage() {
     }
   }
 
-  // 2. Ambil data DARI URL SUMBER
   async function handleLoadData() {
     if (!url) {
       showToast("error", "URL sumber wajib diisi!");
@@ -125,7 +132,6 @@ export default function DataCenterPage() {
     }
   }
 
-  // 3. Hapus data yang dipilih
   async function handleDeleteSelected() {
     if (selectedRows.length === 0) return;
 
@@ -161,28 +167,10 @@ export default function DataCenterPage() {
     }
   }
 
-  // Handle Select All
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedRows(filteredData.map((item) => item.id));
-    } else {
-      setSelectedRows([]);
-    }
-  };
-
-  // Handle Select Row
-  const handleSelectRow = (id: string) => {
-    setSelectedRows((prev) =>
-      prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
-    );
-  };
-
-  // Format Rupiah
   const formatRupiah = (angka: string) => {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(angka));
   };
 
-  // Format Tanggal
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     try {
@@ -199,12 +187,19 @@ export default function DataCenterPage() {
     }
   };
 
-  // === LOGIKA FILTER & SEARCH ===
-  
-  // Ambil daftar Bulan & Kategori unik dari data untuk dropdown
   const uniqueBulan = useMemo(() => {
+    // 1. Ambil semua bulan unik
     const bulan = data.map((item) => item.bulan);
-    return [...new Set(bulan)].filter(Boolean).sort();
+    const unique = [...new Set(bulan)].filter(Boolean);
+
+    // 2. Definisikan urutan bulan yang benar
+    const monthOrder = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+
+    // 3. Urutkan berdasarkan index di dalam array monthOrder
+    return unique.sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
   }, [data]);
 
   const uniqueKategori = useMemo(() => {
@@ -212,10 +207,8 @@ export default function DataCenterPage() {
     return [...new Set(kategori)].filter(Boolean).sort();
   }, [data]);
 
-  // Filter Data berdasarkan Search Term, Bulan, dan Kategori
   const filteredData = useMemo(() => {
     return data.filter((row) => {
-      // Cek Search
       const searchLower = searchTerm.toLowerCase();
       const matchSearch =
         row.aktivitas.toLowerCase().includes(searchLower) ||
@@ -224,20 +217,39 @@ export default function DataCenterPage() {
         row.nama_item.toLowerCase().includes(searchLower) ||
         row.bulan.toLowerCase().includes(searchLower);
 
-      // Cek Filter Bulan
       const matchBulan = filterBulan === "" || row.bulan === filterBulan;
-
-      // Cek Filter Kategori
       const matchKategori = filterKategori === "" || row.kategori === filterKategori;
 
       return matchSearch && matchBulan && matchKategori;
     });
   }, [data, searchTerm, filterBulan, filterKategori]);
 
+  // === LOGIKA PAGINASI DENGAN OPSI SEMUA DATA ===
+  const totalPages = itemsPerPage === 999999 ? 1 : Math.ceil(filteredData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = itemsPerPage === 999999 ? filteredData : filteredData.slice(startIndex, endIndex);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const currentIds = currentData.map((item) => item.id);
+      setSelectedRows((prev) => [...new Set([...prev, ...currentIds])]);
+    } else {
+      const currentIds = currentData.map((item) => item.id);
+      setSelectedRows((prev) => prev.filter((id) => !currentIds.includes(id)));
+    }
+  };
+
+  const handleSelectRow = (id: string) => {
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]
+    );
+  };
+
+  const isAllCurrentPageSelected = currentData.length > 0 && currentData.every((row) => selectedRows.includes(row.id));
 
   return (
     <div className="space-y-6">
-      {/* Toast Notifikasi */}
       {toast && (
         <div className={`fixed right-6 top-20 z-50 rounded-lg px-6 py-3 text-sm font-medium shadow-lg transition-all ${
           toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
@@ -246,13 +258,11 @@ export default function DataCenterPage() {
         </div>
       )}
 
-      {/* Header Halaman */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Data Center</h1>
         <p className="text-slate-500">Tarik dan kelola data dari URL sumber secara sementara.</p>
       </div>
 
-      {/* Panel Kontrol (HANYA UNTUK ADMIN) */}
       {role === "admin" && (
         <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex-1">
@@ -277,15 +287,63 @@ export default function DataCenterPage() {
         </div>
       )}
 
-      {/* Tabel Data & Search & Filter */}
-      <div className="space-y-4">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         
-        {/* Baris Kontrol: Search, Filter, dan Tombol Hapus */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Top Bar: Show Entries & Filters & Search & Tombol Hapus */}
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
           
-          {/* Grup Search & Filter */}
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-            {/* Input Search */}
+          {/* Show Entries */}
+          <div className="flex items-center space-x-2 text-sm text-slate-600">
+            <span>Show</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 cursor-pointer"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={999999}>Semua Data</option>
+            </select>
+            <span>entries</span>
+          </div>
+
+          {/* Search & Filter & Hapus */}
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:justify-end sm:items-center">
+            
+            {role === "admin" && (
+              <button
+                onClick={() => setIsDeleteModalOpen(true)}
+                disabled={selectedRows.length === 0 || isLoading}
+                className="cursor-pointer rounded-lg bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                Hapus ({selectedRows.length})
+              </button>
+            )}
+
+            <select
+              value={filterBulan}
+              onChange={(e) => setFilterBulan(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            >
+              <option value="">Semua Bulan</option>
+              {uniqueBulan.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterKategori}
+              onChange={(e) => setFilterKategori(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            >
+              <option value="">Semua Kategori</option>
+              {uniqueKategori.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+
             <div className="relative w-full max-w-xs">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -296,115 +354,132 @@ export default function DataCenterPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari data..."
-                className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-4 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                placeholder="Search..."
+                className="w-full rounded-lg border border-slate-300 py-1.5 pl-10 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               />
             </div>
+          </div>
+        </div>
 
-            {/* Dropdown Filter Bulan */}
-            <select
-              value={filterBulan}
-              onChange={(e) => setFilterBulan(e.target.value)}
-              className="w-full sm:w-auto rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            >
-              <option value="">Semua Bulan</option>
-              {uniqueBulan.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                {role === "admin" && (
+                  <th className="px-4 py-4 font-medium w-12">
+                    <input
+                      type="checkbox"
+                      checked={isAllCurrentPageSelected}
+                      onChange={handleSelectAll}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th className="px-4 py-4 font-medium">ID</th>
+                <th className="px-4 py-4 font-medium">Aktivitas</th>
+                <th className="px-4 py-4 font-medium">Tempat</th>
+                <th className="px-4 py-4 font-medium">Bulan</th>
+                <th className="px-4 py-4 font-medium">Tanggal</th>
+                <th className="px-4 py-4 font-medium">Kategori</th>
+                <th className="px-4 py-4 font-medium">Nama Item</th>
+                <th className="px-4 py-4 text-right font-medium">Harga</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {isLoading && data.length === 0 ? (
+                <tr>
+                  <td colSpan={role === "admin" ? 9 : 8} className="px-4 py-8 text-center text-slate-500">
+                    Memuat data...
+                  </td>
+                </tr>
+              ) : currentData.length === 0 ? (
+                <tr>
+                  <td colSpan={role === "admin" ? 9 : 8} className="px-4 py-8 text-center text-slate-500">
+                    {data.length === 0 ? "Belum ada data. Silakan Load Data." : "Data tidak ditemukan dengan filter tersebut."}
+                  </td>
+                </tr>
+              ) : (
+                currentData.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50">
+                    {role === "admin" && (
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.includes(row.id)}
+                          onChange={() => handleSelectRow(row.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    <td className="px-4 py-4">{row.id}</td>
+                    <td className="px-4 py-4">{row.aktivitas}</td>
+                    <td className="px-4 py-4">{row.tempat}</td>
+                    <td className="px-4 py-4">{row.bulan}</td>
+                    <td className="px-4 py-4">{formatDate(row.date)}</td>
+                    <td className="px-4 py-4">{row.kategori}</td>
+                    <td className="px-4 py-4">{row.nama_item}</td>
+                    <td className="px-4 py-4 text-right">{formatRupiah(row.harga)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-            {/* Dropdown Filter Kategori */}
-            <select
-              value={filterKategori}
-              onChange={(e) => setFilterKategori(e.target.value)}
-              className="w-full sm:w-auto rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            >
-              <option value="">Semua Kategori</option>
-              {uniqueKategori.map((k) => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-            </select>
+        {/* BOTTOM BAR: Pagination & Info */}
+        <div className="flex flex-col items-center justify-between border-t border-slate-200 p-4 sm:flex-row">
+          <div className="mb-4 text-sm text-slate-500 sm:mb-0">
+            Showing {filteredData.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filteredData.length)} of {filteredData.length} entries
           </div>
           
-          {/* Tombol Hapus (HANYA UNTUK ADMIN) */}
-          {role === "admin" && (
-            <button
-              onClick={() => setIsDeleteModalOpen(true)}
-              disabled={selectedRows.length === 0 || isLoading}
-              className="cursor-pointer rounded-lg bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700 disabled:opacity-50 sm:w-auto w-full"
-            >
-              Hapus Terpilih ({selectedRows.length})
-            </button>
+          {/* Sembunyikan paginasi jika memilih Semua Data */}
+          {itemsPerPage !== 999999 && (
+            <div className="flex space-x-1">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="flex items-center justify-center rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                &lt;
+              </button>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(page => {
+                  if (totalPages <= 5) return true;
+                  if (page === 1 || page === totalPages) return true;
+                  if (page >= currentPage - 1 && page <= currentPage + 1) return true;
+                  return false;
+                })
+                .map((page, index, array) => {
+                  const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                  return (
+                    <div key={page} className="flex items-center">
+                      {showEllipsis && <span className="px-2 text-slate-400">...</span>}
+                      <button
+                        onClick={() => setCurrentPage(page)}
+                        className={`flex h-8 w-8 items-center justify-center rounded-md text-sm font-medium transition-colors cursor-pointer ${
+                          currentPage === page
+                            ? "bg-indigo-600 text-white border border-indigo-600"
+                            : "border border-slate-300 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  );
+                })}
+
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="flex items-center justify-center rounded-md border border-slate-300 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                &gt;
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Tabel */}
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-                <tr>
-                  {role === "admin" && (
-                    <th className="px-4 py-4 font-medium">
-                      <input
-                        type="checkbox"
-                        checked={filteredData.length > 0 && selectedRows.length === filteredData.length}
-                        onChange={handleSelectAll}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                    </th>
-                  )}
-                  <th className="px-4 py-4 font-medium">ID</th>
-                  <th className="px-4 py-4 font-medium">Aktivitas</th>
-                  <th className="px-4 py-4 font-medium">Tempat</th>
-                  <th className="px-4 py-4 font-medium">Bulan</th>
-                  <th className="px-4 py-4 font-medium">Tanggal</th>
-                  <th className="px-4 py-4 font-medium">Kategori</th>
-                  <th className="px-4 py-4 font-medium">Nama Item</th>
-                  <th className="px-4 py-4 text-right font-medium">Harga</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {isLoading && data.length === 0 ? (
-                  <tr>
-                    <td colSpan={role === "admin" ? 9 : 8} className="px-4 py-8 text-center text-slate-500">
-                      Memuat data...
-                    </td>
-                  </tr>
-                ) : filteredData.length === 0 ? (
-                  <tr>
-                    <td colSpan={role === "admin" ? 9 : 8} className="px-4 py-8 text-center text-slate-500">
-                      {data.length === 0 ? "Belum ada data. Silakan Load Data." : "Data tidak ditemukan dengan filter tersebut."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50">
-                      {role === "admin" && (
-                        <td className="px-4 py-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedRows.includes(row.id)}
-                            onChange={() => handleSelectRow(row.id)}
-                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </td>
-                      )}
-                      <td className="px-4 py-4">{row.id}</td>
-                      <td className="px-4 py-4">{row.aktivitas}</td>
-                      <td className="px-4 py-4">{row.tempat}</td>
-                      <td className="px-4 py-4">{row.bulan}</td>
-                      <td className="px-4 py-4">{formatDate(row.date)}</td>
-                      <td className="px-4 py-4">{row.kategori}</td>
-                      <td className="px-4 py-4">{row.nama_item}</td>
-                      <td className="px-4 py-4 text-right">{formatRupiah(row.harga)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       {/* MODAL KONFIRMASI HAPUS */}
