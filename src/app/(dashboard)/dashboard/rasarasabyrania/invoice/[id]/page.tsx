@@ -31,7 +31,8 @@ type Settings = {
   ig_handle: string;
 };
 
-const ITEMS_PER_PAGE = 10;
+// MAKSIMAL 12 ITEM PER HALAMAN
+const ITEMS_PER_PAGE = 16;
 
 export default function InvoiceDetailPage() {
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function InvoiceDetailPage() {
     if (!dateString) return "-";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString("en-GB", {
+      return date.toLocaleDateString("id-ID", {
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -108,7 +109,6 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  // === FUNGSI RENDER HALAMAN (DIPAKAI UNTUK WEB DAN PDF) ===
   const renderPage = (pageIndex: number, pageItems: InvoiceItem[], isLastPage: boolean) => {
     const isFirstPage = pageIndex === 0;
 
@@ -119,11 +119,11 @@ export default function InvoiceDetailPage() {
         style={{ 
           width: "800px", 
           height: "1000px",
-          padding: "50px 60px", 
+          padding: "40px 50px", 
           backgroundColor: "#ffffff",
           position: "relative",
           boxSizing: "border-box",
-          fontFamily: "'Inter', 'Montserrat', Arial, sans-serif",
+          fontFamily: "'Inter', 'Montserrat', sans-serif",
           color: "#000000",
           display: "flex",
           flexDirection: "column",
@@ -133,114 +133,103 @@ export default function InvoiceDetailPage() {
         <div style={{ flex: 1 }}>
           {isFirstPage ? (
             <>
-              <div style={{ position: "absolute", top: "20px", left: "40px" }}>
-                <img src="/rasarasalogo.png" alt="Logo" style={{ width: "210px", height: "auto" }} />
-              </div>
-
-              <div style={{ textAlign: "right", marginBottom: "35px" }}>
-                <h1 style={{ fontSize: "28px", fontWeight: "900", margin: "0 0 4px 0", letterSpacing: "1.5px" }}>
-                  <span style={{ color: "#2b39b0" }}>RASARASA </span>
-                  <span style={{ color: "#e88bb9" }}>BYRANIA</span>
-                </h1>
-                
-                {/* INSTAGRAM (MENGGUNAKAN GAMBAR) */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "5px", marginBottom: "30px" }}>
-                  <img 
-                    src="/logoig.png" 
-                    alt="IG" 
-                    style={{ width: "16px", height: "16px", display: "block", marginTop: "2px" }} 
-                  />
-                  <span style={{ fontSize: "14px", fontWeight: "600", letterSpacing: "1px", lineHeight: "1" }}>
-                    {settings?.ig_handle || "@rasarasabyrania"}
-                  </span>
-                </div>
-
+              {/* HEADER CONTAINER */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", position: "relative" }}>
                 <div>
-                  <h2 style={{ fontSize: "36px", fontWeight: "900", margin: 0, letterSpacing: "3px", lineHeight: "1.1" }}>INVOICE</h2>
-                  <p style={{ fontSize: "26px", fontWeight: "800", margin: "4px 0 0 0", letterSpacing: "1px" }}>#{invoice?.invoice_number.replace("#", "")}</p>
+                  {/* LOGO KIRI (POSISI DIESUAIKAN AGAR NAIK & KEKIRI) */}
+                  <div style={{ position: "absolute", top: "-25px", left: "-20px" }}>
+                    <img src="/rasarasalogo.png" alt="Logo" style={{ width: "200px", height: "auto" }} />
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "right" }}>
+                  <h1 style={{ fontSize: "26px", fontWeight: "900", margin: "0 0 4px 0", letterSpacing: "1px" }}>
+                    <span style={{ color: "#2b39b0" }}>RASARASA </span>
+                    <span style={{ color: "#e88bb9" }}>BYRANIA</span>
+                  </h1>
+                  
+                  <div style={{ fontSize: "13px", fontWeight: "600", marginBottom: "10px", color: "#000000" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginBottom: "4px" }}>
+                      <img src="/logoig.png" alt="IG" style={{ width: "15px", height: "15px", display: "block" }} />
+                      <span>{settings?.ig_handle || "@rasarasabyrania"}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px" }}>
+                      <img src="/logowa.png" alt="WA" style={{ width: "15px", height: "15px", display: "block" }} />
+                      <span>{settings?.wa_number || "08170765594"}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 style={{ fontSize: "32px", fontWeight: "900", margin: 0, letterSpacing: "2px", lineHeight: "1" }}>INVOICE</h2>
+                    <p style={{ fontSize: "23px", fontWeight: "900", margin: "2px 0 0 0" }}>#{invoice?.invoice_number.replace("#", "")}</p>
+                  </div>
                 </div>
               </div>
 
-              <div style={{ marginBottom: "25px", fontSize: "15px", fontWeight: "600" }}>
-                <div style={{ display: "flex", marginBottom: "10px", alignItems: "center" }}>
-                  <span style={{ width: "130px", fontWeight: "900", letterSpacing: "1.5px" }}>BILLED TO</span>
-                  <span style={{ width: "20px" }}>:</span>
-                  <span style={{ fontWeight: "700" }}>{invoice?.billed_to}</span>
+              {/* BILLED TO, DATE & INFO BANK */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "15px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "700" }}>
+                  <div style={{ display: "flex", marginBottom: "4px", alignItems: "center" }}>
+                    <span style={{ width: "110px", fontWeight: "900", letterSpacing: "1px" }}>BILLED TO</span>
+                    <span style={{ width: "16px" }}>:</span>
+                    <span>{invoice?.billed_to}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ width: "110px", fontWeight: "900", letterSpacing: "1px" }}>DATE</span>
+                    <span style={{ width: "16px" }}>:</span>
+                    <span>{formatDate(invoice?.date || "")}</span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ width: "130px", fontWeight: "900", letterSpacing: "1.5px" }}>DATE</span>
-                  <span style={{ width: "20px" }}>:</span>
-                  <span style={{ fontWeight: "700" }}>{formatDate(invoice?.date || "")}</span>
+
+                <div style={{ textAlign: "right", fontSize: "14px", fontWeight: "500", lineHeight: "1.3" }}>
+                  <div style={{ fontSize: "16px", fontWeight: "600" }}>{settings?.bank || "BCA"}</div>
+                  <div style={{ fontWeight: "600", fontSize: "15px" }}>{settings?.account_number || "5271385456"}</div>
+                  <div style={{ fontWeight: "500" }}>{settings?.account_name || "Rania Kemala Ayu"}</div>
                 </div>
               </div>
             </>
           ) : (
-             <div style={{ height: "50px" }}></div>
+             <div style={{ height: "25px" }}></div>
           )}
 
-          <div style={{ borderTop: "1.5px solid #000000" }}></div>
-
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", tableLayout: "fixed" }}>
+          {/* TABEL ITEM */}
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10px", tableLayout: "fixed" }}>
             <thead>
-              <tr style={{ borderBottom: "3px solid #000000" }}>
-                <th style={{ padding: "14px 0", textAlign: "left", fontSize: "15px", fontWeight: "900", letterSpacing: "1.5px", width: "35%" }}>ITEM</th>
-                <th style={{ padding: "14px 0", textAlign: "right", fontSize: "15px", fontWeight: "900", letterSpacing: "1.5px", width: "20%" }}>PRICE</th>
-                <th style={{ padding: "14px 0", textAlign: "center", fontSize: "15px", fontWeight: "900", letterSpacing: "1.5px", width: "20%" }}>QUANTITY</th>
-                <th style={{ padding: "14px 0", textAlign: "right", fontSize: "15px", fontWeight: "900", letterSpacing: "1.5px", width: "25%" }}>AMOUNT</th>
+              <tr style={{ borderTop: "2px solid #000000", borderBottom: "3px solid #000000" }}>
+                <th style={{ padding: "8px 0", textAlign: "left", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "40%" }}>ITEM</th>
+                <th style={{ padding: "8px 0", textAlign: "center", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "18%" }}>PRICE</th>
+                <th style={{ padding: "8px 0", textAlign: "center", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "14%" }}>QUANTITY</th>
+                <th style={{ padding: "8px 0", textAlign: "right", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "28%" }}>AMOUNT</th>
               </tr>
             </thead>
             <tbody>
               {pageItems.map((item, index) => (
-                <tr key={index} style={{ borderBottom: "1px solid #4a4a4a" }}>
-                  <td style={{ padding: "14px 0", fontSize: "15px", color: "#333333", fontWeight: "400", wordWrap: "break-word" }}>{item.item_name}</td>
-                  <td style={{ padding: "14px 0", fontSize: "15px", color: "#4b5563", textAlign: "right", fontWeight: "300" }}>{formatRupiah(item.price)}</td>
-                  <td style={{ padding: "14px 0", fontSize: "15px", color: "#4b5563", textAlign: "center", fontWeight: "300" }}>{item.quantity}</td>
-                  <td style={{ padding: "14px 0", fontSize: "15px", color: "#4b5563", textAlign: "right", fontWeight: "300" }}>{formatRupiah(item.amount)}</td>
+                <tr key={index} style={{ borderBottom: "1px solid #d1d5db" }}>
+                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#111827", fontWeight: "500" }}>{item.item_name}</td>
+                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#374151", textAlign: "center", fontWeight: "400" }}>{formatRupiah(item.price)}</td>
+                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#374151", textAlign: "center", fontWeight: "400" }}>{item.quantity}</td>
+                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#374151", textAlign: "right", fontWeight: "400" }}>{formatRupiah(item.amount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
+          {/* SUB-TOTAL & TOTAL (HANYA MUNCUL DI HALAMAN TERAKHIR) */}
           {isLastPage && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginBottom: "40px" }}>
-              <div style={{ width: "350px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "12px", fontSize: "16px", color: "#4b5563", fontWeight: "300" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: "12px" }}>
+              <div style={{ width: "280px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "6px", fontSize: "13px", color: "#4b5563", fontWeight: "400" }}>
                   <span>Sub-Total</span>
                   <span>{formatRupiah(Number(invoice?.sub_total))}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1.5px solid #000000", paddingTop: "12px" }}>
-                  <span style={{ fontSize: "20px", fontWeight: "900", letterSpacing: "2px" }}>TOTAL</span>
-                  <span style={{ fontSize: "20px", fontWeight: "900" }}>{formatRupiah(Number(invoice?.total_amount))}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #000000", paddingTop: "6px" }}>
+                  <span style={{ fontSize: "16px", fontWeight: "900", letterSpacing: "1px" }}>TOTAL</span>
+                  <span style={{ fontSize: "16px", fontWeight: "900" }}>{formatRupiah(Number(invoice?.total_amount))}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
-
-        {/* FOOTER ABSOLUTE (SELALU DI BAWAH) */}
-        {isLastPage && (
-          <div style={{ position: "absolute", bottom: "0px", left: "60px", right: "60px", paddingBottom: "40px" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: "900", margin: "0 0 16px 0", letterSpacing: "2px" }}>PAY TO:</h3>
-            <div style={{ fontSize: "15px", fontWeight: "700" }}>
-              <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ width: "160px" }}>Bank</span><span>{settings?.bank || "BCA"}</span></div>
-              <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ width: "160px" }}>Account Name</span><span>{settings?.account_name || "Rania Kemala Ayu"}</span></div>
-              <div style={{ display: "flex" }}><span style={{ width: "160px" }}>Account Number</span><span>{settings?.account_number || "5271385456"}</span></div>
-            </div>
-            <div style={{ borderTop: "3px solid #000000", margin: "16px 0 12px 0" }}></div>
-            
-            {/* WHATSAPP (MENGGUNAKAN GAMBAR) */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px" }}>
-              <img 
-                src="/logowa.png" 
-                alt="WA" 
-                style={{ width: "22px", height: "22px", display: "block" }} 
-              />
-              <span style={{ fontSize: "16px", fontWeight: "600", letterSpacing: "1px", lineHeight: "1" }}>
-                {settings?.wa_number || "0817-0765-594"}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
@@ -252,7 +241,8 @@ export default function InvoiceDetailPage() {
     try {
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      
+
+      // BAGI ITEMS SETIAP 12 ITEM PER HALAMAN
       const pages = [];
       for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
         pages.push(items.slice(i, i + ITEMS_PER_PAGE));
@@ -272,73 +262,94 @@ export default function InvoiceDetailPage() {
         tempDiv.style.width = "800px";
         
         const htmlString = `
-          <div style="width: 800px; height: 1000px; padding: 50px 60px; background-color: #ffffff; position: relative; box-sizing: border-box; font-family: 'Inter', 'Montserrat', Arial, sans-serif; color: #000000; display: flex; flex-direction: column;">
+          <div style="width: 800px; height: 1000px; padding: 40px 50px; background-color: #ffffff; position: relative; box-sizing: border-box; font-family: 'Inter', 'Montserrat', sans-serif; color: #000000; display: flex; flex-direction: column;">
             <div style="flex: 1;">
               ${i === 0 ? `
-                <div style="position: absolute; top: 40px; left: 40px;"><img src="/rasarasalogo.png" style="width: 200px; height: auto;" /></div>
-                <div style="text-align: right; margin-bottom: 35px;">
-                  <h1 style="font-size: 28px; font-weight: 900; margin: 0 0 4px 0; letter-spacing: 1.5px;"><span style="color: #2b39b0;">RASARASA </span><span style="color: #e88bb9;">BYRANIA</span></h1>
-                  
-                  <!-- INSTAGRAM (MENGGUNAKAN GAMBAR) -->
-                  <div style="display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-bottom: 30px;">
-                    <img src="/logoig.png" style="width: 16px; height: 16px; display: block; margin-top: 17px;" />
-                    <span style="font-size: 14px; font-weight: 600; letter-spacing: 1px; line-height: 1;">${settings?.ig_handle || "@rasarasabyrania"}</span>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative;">
+                  <div>
+                    <div style="position: absolute; top: -25px; left: -20px;">
+                      <img src="/rasarasalogo.png" style="width: 200px; height: auto;" />
+                    </div>
                   </div>
+                  <div style="text-align: right;">
+                    <h1 style="font-size: 26px; font-weight: 900; margin: 0 0 4px 0; letter-spacing: 1px;">
+                      <span style="color: #2b39b0;">RASARASA </span>
+                      <span style="color: #e88bb9;">BYRANIA</span>
+                    </h1>
+                    <div style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #000000;">
+                      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;">
+                        <img src="/logoig.png" style="width: 15px; height: 15px; display: block;" />
+                        <span>${settings?.ig_handle || "@rasarasabyrania"}</span>
+                      </div>
+                      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+                        <img src="/logowa.png" style="width: 15px; height: 15px; display: block;" />
+                        <span>${settings?.wa_number || "08170765594"}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <h2 style="font-size: 32px; font-weight: 900; margin: 0; letter-spacing: 2px; line-height: 1;">INVOICE</h2>
+                      <p style="font-size: 22px; font-weight: 900; margin: 2px 0 0 0;">#${invoice.invoice_number.replace("#", "")}</p>
+                    </div>
+                  </div>
+                </div>
 
-                  <div><h2 style="font-size: 36px; font-weight: 900; margin: 0; letter-spacing: 3px; line-height: 1.1;">INVOICE</h2><p style="font-size: 26px; font-weight: 800; margin: 4px 0 0 0; letter-spacing: 1px;">#${invoice.invoice_number.replace("#", "")}</p></div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+                  <div style="font-size: 14px; font-weight: 700;">
+                    <div style="display: flex; margin-bottom: 4px; align-items: center;">
+                      <span style="width: 110px; font-weight: 900; letter-spacing: 1px;">BILLED TO</span>
+                      <span style="width: 16px;">:</span>
+                      <span>${invoice.billed_to}</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                      <span style="width: 110px; font-weight: 900; letter-spacing: 1px;">DATE</span>
+                      <span style="width: 16px;">:</span>
+                      <span>${formatDate(invoice.date)}</span>
+                    </div>
+                  </div>
+                  <div style="text-align: right; font-size: 14px; font-weight: 500; line-height: 1.3;">
+                    <div style="font-size: 16px; font-weight: 600;">${settings?.bank || "BCA"}</div>
+                    <div style="font-weight: 600; font-size: 15px;">${settings?.account_number || "5271385456"}</div>
+                    <div style="font-weight: 500;">${settings?.account_name || "Rania Kemala Ayu"}</div>
+                  </div>
                 </div>
-                <div style="margin-bottom: 25px; font-size: 15px; font-weight: 600;">
-                  <div style="display: flex; margin-bottom: 10px; align-items: center;"><span style="width: 130px; font-weight: 900; letter-spacing: 1.5px;">BILLED TO</span><span style="width: 20px;">:</span><span style="font-weight: 700;">${invoice.billed_to}</span></div>
-                  <div style="display: flex; align-items: center;"><span style="width: 130px; font-weight: 900; letter-spacing: 1.5px;">DATE</span><span style="width: 20px;">:</span><span style="font-weight: 700;">${formatDate(invoice.date)}</span></div>
-                </div>
-              ` : '<div style="height: 50px;"></div>'}
-              <div style="border-top: 1.5px solid #000000;"></div>
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed;">
+              ` : '<div style="height: 25px;"></div>'}
+
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed;">
                 <thead>
-                  <tr style="border-bottom: 3px solid #000000;">
-                    <th style="padding: 14px 0; text-align: left; font-size: 15px; font-weight: 900; letter-spacing: 1.5px; width: 35%;">ITEM</th>
-                    <th style="padding: 14px 0; text-align: right; font-size: 15px; font-weight: 900; letter-spacing: 1.5px; width: 20%;">PRICE</th>
-                    <th style="padding: 14px 0; text-align: center; font-size: 15px; font-weight: 900; letter-spacing: 1.5px; width: 20%;">QUANTITY</th>
-                    <th style="padding: 14px 0; text-align: right; font-size: 15px; font-weight: 900; letter-spacing: 1.5px; width: 25%;">AMOUNT</th>
+                  <tr style="border-top: 2px solid #000000; border-bottom: 3.5px solid #000000;">
+                    <th style="padding: 8px 0; text-align: left; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 40%;">ITEM</th>
+                    <th style="padding: 8px 0; text-align: center; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 18%;">PRICE</th>
+                    <th style="padding: 8px 0; text-align: center; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 14%;">QUANTITY</th>
+                    <th style="padding: 8px 0; text-align: right; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 28%;">AMOUNT</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${pageItems.map(item => `
-                    <tr style="border-bottom: 1px solid #4a4a4a;">
-                      <td style="padding: 14px 0; font-size: 15px; color: #333333; font-weight: 400; word-wrap: break-word;">${item.item_name}</td>
-                      <td style="padding: 14px 0; font-size: 15px; color: #4b5563; text-align: right; font-weight: 300;">${formatRupiah(item.price)}</td>
-                      <td style="padding: 14px 0; font-size: 15px; color: #4b5563; text-align: center; font-weight: 300;">${item.quantity}</td>
-                      <td style="padding: 14px 0; font-size: 15px; color: #4b5563; text-align: right; font-weight: 300;">${formatRupiah(item.amount)}</td>
+                    <tr style="border-bottom: 1px solid #d1d5db;">
+                      <td style="padding: 6px 0; font-size: 14px; color: #111827; font-weight: 500;">${item.item_name}</td>
+                      <td style="padding: 6px 0; font-size: 14px; color: #374151; text-align: center; font-weight: 400;">${formatRupiah(item.price)}</td>
+                      <td style="padding: 6px 0; font-size: 14px; color: #374151; text-align: center; font-weight: 400;">${item.quantity}</td>
+                      <td style="padding: 6px 0; font-size: 14px; color: #374151; text-align: right; font-weight: 400;">${formatRupiah(item.amount)}</td>
                     </tr>
                   `).join('')}
                 </tbody>
               </table>
+
               ${isLastPage ? `
-                <div style="display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 40px;">
-                  <div style="width: 350px;">
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 12px; font-size: 16px; color: #4b5563; font-weight: 300;"><span>Sub-Total</span><span>${formatRupiah(Number(invoice.sub_total))}</span></div>
-                    <div style="display: flex; justify-content: space-between; border-top: 1.5px solid #000000; padding-top: 12px;"><span style="font-size: 20px; font-weight: 900; letter-spacing: 2px;">TOTAL</span><span style="font-size: 20px; font-weight: 900;">${formatRupiah(Number(invoice.total_amount))}</span></div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; margin-top: 12px;">
+                  <div style="width: 280px; margin-left: auto;">
+                    <div style="display: flex; justify-content: space-between; padding-bottom: 6px; font-size: 13px; color: #4b5563; font-weight: 400;">
+                      <span>Sub-Total</span>
+                      <span>${formatRupiah(Number(invoice.sub_total))}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-top: 2px solid #000000; padding-top: 6px;">
+                      <span style="font-size: 16px; font-weight: 900; letter-spacing: 1px;">TOTAL</span>
+                      <span style="font-size: 16px; font-weight: 900;">${formatRupiah(Number(invoice.total_amount))}</span>
+                    </div>
                   </div>
                 </div>
               ` : ''}
             </div>
-            ${isLastPage ? `
-              <div style="position: absolute; bottom: 0px; left: 60px; right: 60px; padding-bottom: 40px;">
-                <h3 style="font-size: 18px; font-weight: 900; margin: 0 0 16px 0; letter-spacing: 2px;">PAY TO:</h3>
-                <div style="font-size: 15px; font-weight: 700;">
-                  <div style="display: flex; margin-bottom: 8px;"><span style="width: 160px;">Bank</span><span>${settings?.bank || "BCA"}</span></div>
-                  <div style="display: flex; margin-bottom: 8px;"><span style="width: 160px;">Account Name</span><span>${settings?.account_name || "Rania Kemala Ayu"}</span></div>
-                  <div style="display: flex;"><span style="width: 160px;">Account Number</span><span>${settings?.account_number || "5271385456"}</span></div>
-                </div>
-                <div style="border-top: 3px solid #000000; margin: 16px 0 12px 0;"></div>
-                
-                <!-- WHATSAPP (MENGGUNAKAN GAMBAR) -->
-                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                  <img src="/logowa.png" style="width: 22px; height: 22px; display: block; margin-top: 17px;" />
-                  <span style="font-size: 16px; font-weight: 600; letter-spacing: 1px; line-height: 1;">${settings?.wa_number || "0817-0765-594"}</span>
-                </div>
-              </div>
-            ` : ''}
           </div>
         `;
 
@@ -352,9 +363,7 @@ export default function InvoiceDetailPage() {
           useCORS: true, 
           backgroundColor: "#ffffff",
           width: 800,
-          height: 1000,
-          windowWidth: 800,
-          windowHeight: 1000
+          windowWidth: 800
         });
         
         const imgData = canvas.toDataURL("image/png");
