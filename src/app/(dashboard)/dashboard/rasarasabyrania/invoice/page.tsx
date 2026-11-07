@@ -20,6 +20,7 @@ export default function InvoiceListPage() {
   
   // State untuk Pencarian & Paginasi
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterBulan, setFilterBulan] = useState(""); // <-- State Filter Bulan
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -39,7 +40,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, itemsPerPage]);
+  }, [searchTerm, filterBulan, itemsPerPage]);
 
   function showToast(type: "success" | "error", message: string) {
     setToast({ type, message });
@@ -96,16 +97,44 @@ export default function InvoiceListPage() {
     }
   };
 
+  // === LOGIKA DROPDOWN BULAN ===
+  const uniqueBulan = useMemo(() => {
+    const months = invoices.map((item) => {
+      if (!item.date) return "";
+      try {
+        const date = new Date(item.date);
+        // Format: "January", "February", etc.
+        return date.toLocaleDateString("en-GB", { month: "long" });
+      } catch (e) {
+        return "";
+      }
+    }).filter(Boolean);
+
+    const unique = [...new Set(months)];
+    const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return unique.sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b));
+  }, [invoices]);
+
   // === LOGIKA FILTER & PAGINASI ===
   const filteredData = useMemo(() => {
     return invoices.filter((row) => {
+      // 1. Filter Search
       const searchLower = searchTerm.toLowerCase();
-      return (
+      const matchSearch =
         row.invoice_number.toLowerCase().includes(searchLower) ||
-        row.billed_to.toLowerCase().includes(searchLower)
-      );
+        row.billed_to.toLowerCase().includes(searchLower);
+
+      // 2. Filter Bulan
+      let matchBulan = true;
+      if (filterBulan !== "" && row.date) {
+        const date = new Date(row.date);
+        const rowMonth = date.toLocaleDateString("en-GB", { month: "long" });
+        matchBulan = rowMonth === filterBulan;
+      }
+
+      return matchSearch && matchBulan;
     });
-  }, [invoices, searchTerm]);
+  }, [invoices, searchTerm, filterBulan]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -133,7 +162,7 @@ export default function InvoiceListPage() {
 
   // === LOGIKA HAPUS (Single & Multiple) ===
   function openDeleteSingle(invoiceId: string) {
-    setSelectedRows([invoiceId]); // Set state hanya untuk 1 baris
+    setSelectedRows([invoiceId]);
     setIsDeleteModalOpen(true);
   }
 
@@ -151,7 +180,6 @@ export default function InvoiceListPage() {
 
       const bodyData = new URLSearchParams();
       bodyData.append("action", "deleteInvoice");
-      // Kirim sebagai string JSON agar bisa menangani multiple ID
       bodyData.append("invoice_id", JSON.stringify(selectedRows));
 
       const response = await fetch(backendUrl, {
@@ -226,6 +254,18 @@ export default function InvoiceListPage() {
                 Hapus Terpilih ({selectedRows.length})
               </button>
             )}
+
+            {/* FILTER BULAN */}
+            <select
+              value={filterBulan}
+              onChange={(e) => setFilterBulan(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            >
+              <option value="">Semua Bulan</option>
+              {uniqueBulan.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
 
             <div className="relative w-full max-w-xs">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
