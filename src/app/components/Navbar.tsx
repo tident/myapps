@@ -27,6 +27,10 @@ export default function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
   if (pathname === "/dashboard") pageTitle = "Overview";
   if (pathname === "/dashboard/accounts") pageTitle = "Manajemen Akun";
   if (pathname === "/dashboard/profile") pageTitle = "Profile Saya";
+  if (pathname.includes("/rasarasa/invoce")) pageTitle = "Rasarasa - Invoce";
+  if (pathname.includes("/rasarasabyrania/setting-invoice")) pageTitle = "Setting Invoice";
+  if (pathname.includes("/rasarasabyrania/data-item")) pageTitle = "Data Item";
+  if (pathname.includes("/rasarasabyrania/invoice/edit")) pageTitle = "Edit Invoice";
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
