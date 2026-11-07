@@ -10,6 +10,8 @@ type Invoice = {
   billed_to: string;
   date: string;
   total_amount: string;
+  total_modal: string;
+  profit: string;
   created_at: string;
 };
 
@@ -20,7 +22,7 @@ export default function InvoiceListPage() {
   
   // State untuk Pencarian & Paginasi
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterBulan, setFilterBulan] = useState(""); // <-- State Filter Bulan
+  const [filterBulan, setFilterBulan] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -66,9 +68,10 @@ export default function InvoiceListPage() {
             billed_to: row[2],
             date: row[3],
             total_amount: row[5],
+            total_modal: row[8], // Ambil dari index 8
+            profit: row[9],      // Ambil dari index 9
             created_at: row[7],
           }));
-        // Urutkan dari yang terbaru
         setInvoices(formattedData.reverse());
       }
     } catch (error) {
@@ -78,7 +81,7 @@ export default function InvoiceListPage() {
     }
   }
 
-  const formatRupiah = (angka: string) => {
+  const formatRupiah = (angka: string | number) => {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(angka));
   };
 
@@ -103,7 +106,6 @@ export default function InvoiceListPage() {
       if (!item.date) return "";
       try {
         const date = new Date(item.date);
-        // Format: "January", "February", etc.
         return date.toLocaleDateString("en-GB", { month: "long" });
       } catch (e) {
         return "";
@@ -118,13 +120,11 @@ export default function InvoiceListPage() {
   // === LOGIKA FILTER & PAGINASI ===
   const filteredData = useMemo(() => {
     return invoices.filter((row) => {
-      // 1. Filter Search
       const searchLower = searchTerm.toLowerCase();
       const matchSearch =
         row.invoice_number.toLowerCase().includes(searchLower) ||
         row.billed_to.toLowerCase().includes(searchLower);
 
-      // 2. Filter Bulan
       let matchBulan = true;
       if (filterBulan !== "" && row.date) {
         const date = new Date(row.date);
@@ -160,7 +160,7 @@ export default function InvoiceListPage() {
 
   const isAllCurrentPageSelected = currentData.length > 0 && currentData.every((row) => selectedRows.includes(row.invoice_id));
 
-  // === LOGIKA HAPUS (Single & Multiple) ===
+  // === LOGIKA HAPUS ===
   function openDeleteSingle(invoiceId: string) {
     setSelectedRows([invoiceId]);
     setIsDeleteModalOpen(true);
@@ -255,7 +255,6 @@ export default function InvoiceListPage() {
               </button>
             )}
 
-            {/* FILTER BULAN */}
             <select
               value={filterBulan}
               onChange={(e) => setFilterBulan(e.target.value)}
@@ -299,20 +298,22 @@ export default function InvoiceListPage() {
                 <th className="px-4 py-4 font-medium">No. Invoice</th>
                 <th className="px-4 py-4 font-medium">Billed To</th>
                 <th className="px-4 py-4 font-medium">Tanggal</th>
-                <th className="px-4 py-4 text-right font-medium">Total</th>
+                <th className="px-4 py-4 text-right font-medium">Modal</th>
+                <th className="px-4 py-4 text-right font-medium">Profit</th>
+                <th className="px-4 py-4 text-center font-medium">Total</th>
                 <th className="px-4 py-4 text-center font-medium">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     Memuat data invoice...
                   </td>
                 </tr>
               ) : currentData.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                     Belum ada invoice. Silakan buat invoice baru.
                   </td>
                 </tr>
@@ -330,7 +331,41 @@ export default function InvoiceListPage() {
                     <td className="px-4 py-4 font-medium text-slate-800">{row.invoice_number}</td>
                     <td className="px-4 py-4">{row.billed_to}</td>
                     <td className="px-4 py-4">{formatDate(row.date)}</td>
-                    <td className="px-4 py-4 text-right font-semibold text-slate-800">{formatRupiah(row.total_amount)}</td>
+                    
+                    {/* KOLOM MODAL (Warning Light) */}
+                    <td className="px-4 py-4 text-right">
+                      <span className="inline-flex items-center rounded-md bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                        {formatRupiah(row.total_modal)}
+                      </span>
+                    </td>
+
+                    {/* KOLOM PROFIT (Success Light + Icon) */}
+                    <td className="px-4 py-4 text-right">
+                      <span className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
+                        Number(row.profit) >= 0 
+                        ? 'bg-green-50 text-green-700 ring-green-600/20' 
+                        : 'bg-red-50 text-red-700 ring-red-600/20'
+                      }`}>
+                        {Number(row.profit) >= 0 ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                            <path fillRule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                            <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {formatRupiah(row.profit)}
+                      </span>
+                    </td>
+
+                    {/* KOLOM TOTAL (Solid Success) */}
+                    <td className="px-4 py-4 text-center">
+                      <span className="inline-flex items-center rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+                        {formatRupiah(row.total_amount)}
+                      </span>
+                    </td>
+
                     <td className="px-4 py-4 text-center space-x-2">
                       <button 
                         onClick={() => router.push(`/dashboard/rasarasabyrania/invoice/${row.invoice_id}`)}

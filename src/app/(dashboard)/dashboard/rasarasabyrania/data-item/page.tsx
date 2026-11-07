@@ -7,42 +7,39 @@ type Item = {
   item_name: string;
   price: string;
   created_at: string;
+  cost_price: string;
+  profit: string;
 };
 
 export default function DataItemPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // State untuk Pencarian & Paginasi
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // State untuk Multi-Select
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
-  // State untuk Modal Form (Tambah / Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [originalItemCode, setOriginalItemCode] = useState("");
   const [formItemCode, setFormItemCode] = useState("");
   const [formItemName, setFormItemName] = useState("");
   const [formPrice, setFormPrice] = useState("");
+  const [formCostPrice, setFormCostPrice] = useState(""); // State Harga Modal
   const [isSaving, setIsSaving] = useState(false);
 
-  // State untuk Modal Konfirmasi Hapus
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null); // null = hapus multiple, string = hapus satuan
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  // State Toast
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     fetchItems();
   }, []);
 
-  // Reset halaman ke 1 saat filter berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, itemsPerPage]);
@@ -70,6 +67,8 @@ export default function DataItemPage() {
             item_name: row[1],
             price: row[2],
             created_at: row[3],
+            cost_price: row[4] || "0", // Ambil kolom E
+            profit: row[5] || "0",     // Ambil kolom F
           }));
         setItems(formattedItems);
       }
@@ -84,7 +83,6 @@ export default function DataItemPage() {
     return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(angka));
   };
 
-  // === LOGIKA FILTER & PAGINASI ===
   const filteredData = useMemo(() => {
     return items.filter((row) => {
       const searchLower = searchTerm.toLowerCase();
@@ -100,7 +98,6 @@ export default function DataItemPage() {
   const endIndex = startIndex + itemsPerPage;
   const currentData = filteredData.slice(startIndex, endIndex);
 
-  // === LOGIKA MULTI-SELECT ===
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       const currentIds = currentData.map((item) => item.item_code);
@@ -119,13 +116,13 @@ export default function DataItemPage() {
 
   const isAllCurrentPageSelected = currentData.length > 0 && currentData.every((row) => selectedRows.includes(row.item_code));
 
-  // === LOGIKA SIMPAN (TAMBAH / EDIT) ===
   function openAddModal() {
     setEditMode(false);
     setOriginalItemCode("");
     setFormItemCode("");
     setFormItemName("");
     setFormPrice("");
+    setFormCostPrice("");
     setIsModalOpen(true);
   }
 
@@ -135,13 +132,14 @@ export default function DataItemPage() {
     setFormItemCode(item.item_code);
     setFormItemName(item.item_name);
     setFormPrice(item.price.toString());
+    setFormCostPrice(item.cost_price.toString());
     setIsModalOpen(true);
   }
 
   async function handleSaveItem(e: React.FormEvent) {
     e.preventDefault();
     if (!formItemCode || !formItemName || !formPrice) {
-      showToast("error", "Semua kolom wajib diisi!");
+      showToast("error", "Kode, Nama, dan Harga Jual wajib diisi!");
       return;
     }
 
@@ -155,6 +153,7 @@ export default function DataItemPage() {
       bodyData.append("item_code", formItemCode);
       bodyData.append("item_name", formItemName);
       bodyData.append("price", formPrice);
+      bodyData.append("cost_price", formCostPrice);
       
       if (editMode) {
         bodyData.append("original_item_code", originalItemCode);
@@ -182,7 +181,6 @@ export default function DataItemPage() {
     }
   }
 
-  // === LOGIKA HAPUS (SATUAN / MULTIPLE) ===
   function openDeleteSingle(itemCode: string) {
     setDeleteTarget(itemCode);
     setIsDeleteModalOpen(true);
@@ -216,7 +214,7 @@ export default function DataItemPage() {
 
       if (data.status === "success") {
         showToast("success", `${itemsToDelete.length} item berhasil dihapus!`);
-        setSelectedRows((prev) => prev.filter(id => !itemsToDelete.includes(id))); // Hapus dari selected state jika multiple
+        setSelectedRows((prev) => prev.filter(id => !itemsToDelete.includes(id)));
         setIsDeleteModalOpen(false);
         setDeleteTarget(null);
         fetchItems();
@@ -229,6 +227,9 @@ export default function DataItemPage() {
       setIsDeleting(false);
     }
   }
+
+  // Hitung Profit secara otomatis di Modal
+  const calculatedProfit = (parseFloat(formPrice) || 0) - (parseFloat(formCostPrice) || 0);
 
   return (
     <div className="space-y-6">
@@ -311,20 +312,22 @@ export default function DataItemPage() {
                 </th>
                 <th className="px-4 py-4 font-medium">Kode Item</th>
                 <th className="px-4 py-4 font-medium">Nama Item</th>
-                <th className="px-4 py-4 text-right font-medium">Harga</th>
+                <th className="px-4 py-4 text-right font-medium">Harga Modal</th>
+                <th className="px-4 py-4 text-right font-medium">Harga Jual</th>
+                <th className="px-4 py-4 text-right font-medium">Profit</th>
                 <th className="px-4 py-4 text-center font-medium">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                     Memuat data...
                   </td>
                 </tr>
               ) : currentData.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                     Belum ada data item.
                   </td>
                 </tr>
@@ -341,7 +344,11 @@ export default function DataItemPage() {
                     </td>
                     <td className="px-4 py-4 font-medium text-slate-800">{row.item_code}</td>
                     <td className="px-4 py-4">{row.item_name}</td>
+                    <td className="px-4 py-4 text-right">{formatRupiah(row.cost_price)}</td>
                     <td className="px-4 py-4 text-right">{formatRupiah(row.price)}</td>
+                    <td className={`px-4 py-4 text-right font-semibold ${Number(row.profit) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatRupiah(row.profit)}
+                    </td>
                     <td className="px-4 py-4 text-center space-x-2">
                       <button 
                         onClick={() => openEditModal(row)}
@@ -437,7 +444,18 @@ export default function DataItemPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Harga (Rp)</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Harga Modal (Rp)</label>
+                  <input
+                    type="number"
+                    value={formCostPrice}
+                    onChange={(e) => setFormCostPrice(e.target.value)}
+                    placeholder="Contoh: 15000"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Harga Jual (Rp)</label>
                   <input
                     type="number"
                     value={formPrice}
@@ -445,6 +463,16 @@ export default function DataItemPage() {
                     placeholder="Contoh: 18000"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                   />
+                </div>
+
+                {/* TAMPILAN PROFIT OTOMATIS */}
+                <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-600">Profit (Harga Jual - Modal)</span>
+                    <span className={`text-lg font-bold ${calculatedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatRupiah(calculatedProfit.toString())}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -470,7 +498,7 @@ export default function DataItemPage() {
         </div>
       )}
 
-      {/* MODAL KONFIRMASI HAPUS (Satuan & Multiple) */}
+      {/* MODAL KONFIRMASI HAPUS */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
