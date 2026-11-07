@@ -133,8 +133,8 @@ export default function InvoiceDetailPage() {
         <div style={{ flex: 1 }}>
           {isFirstPage ? (
             <>
-              <div style={{ position: "absolute", top: "40px", left: "40px" }}>
-                <img src="/rasarasalogo.png" alt="Logo" style={{ width: "200px", height: "auto" }} />
+              <div style={{ position: "absolute", top: "20px", left: "40px" }}>
+                <img src="/rasarasalogo.png" alt="Logo" style={{ width: "210px", height: "auto" }} />
               </div>
 
               <div style={{ textAlign: "right", marginBottom: "35px" }}>
