@@ -150,7 +150,7 @@ export default function InvoiceDetailPage() {
                   
                   <div style={{ fontSize: "13px", fontWeight: "600", marginBottom: "10px", color: "#000000" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginBottom: "4px" }}>
-                      <img src="/logoig.png" alt="IG" style={{ width: "15px", height: "15px", display: "block" }} />
+                      <img src="/logoig.png" alt="IG" style={{ width: "15px", height: "15px", display: "block"}} />
                       <span>{settings?.ig_handle || "@rasarasabyrania"}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px" }}>
@@ -277,12 +277,12 @@ export default function InvoiceDetailPage() {
                       <span style="color: #e88bb9;">BYRANIA</span>
                     </h1>
                     <div style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #000000;">
-                      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 4px;">
-                        <img src="/logoig.png" style="width: 15px; height: 15px; display: block;" />
-                        <span>${settings?.ig_handle || "@rasarasabyrania"}</span>
+                      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 10px;">
+                        <img src="/logoig.png" style="width: 15px; height: 15px; display: block; margin-bottom: -18px;" />
+                        <span>${settings?.ig_handle || "@rasarasabyrania" }</span>
                       </div>
                       <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
-                        <img src="/logowa.png" style="width: 15px; height: 15px; display: block;" />
+                        <img src="/logowa.png" style="width: 15px; height: 15px; display: block; margin-bottom: -13px;" />
                         <span>${settings?.wa_number || "08170765594"}</span>
                       </div>
                     </div>
