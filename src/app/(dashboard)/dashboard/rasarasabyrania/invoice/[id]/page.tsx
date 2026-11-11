@@ -229,7 +229,7 @@ export default function InvoiceDetailPage() {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #000000", paddingTop: "6px" }}>
                   <span style={{ fontSize: "16px", fontWeight: "900", letterSpacing: "1px" }}>TOTAL</span>
-                  <span style={{ fontSize: "16px", fontWeight: "900" }}>{formatRupiah(Number(invoice?.total_amount))}</span>
+                  <span style={{ fontSize: "16px", fontWeight: "900" }}>{formatRupiah(Number(invoice?.sub_total) + Number(invoice?.shipping_cost || 0))}</span>
                 </div>
               </div>
             </div>

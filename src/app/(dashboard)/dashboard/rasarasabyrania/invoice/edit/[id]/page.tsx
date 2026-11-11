@@ -104,7 +104,7 @@ export default function EditInvoicePage() {
           const d = new Date(found[3]);
           setDate(isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0]);
           setInvoiceRows(JSON.parse(found[6]));
-          setShippingCost((found[10] || "0").toString()); // Ambil Ongkir dari index 10
+          setShippingCost(String(found[10] || "0")); // Ambil Ongkir dari index 10
         }
       }
     } catch (error) {
