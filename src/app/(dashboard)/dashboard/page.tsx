@@ -29,7 +29,6 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-indigo-700">
               {/* ANDA BISA MENGUBAH TEKS INI SESUAI KEBUTUHAN */}
               Fitur baru telah ditambahkan! Silakan cek menu Rasarasabyrania untuk melihat pembaruan pada pembuatan Invoice PDF dan pengaturan profit. Pastikan Anda sudah melakukan refresh halaman.
-              <p>Ada pembaharuan untuk penambahan ongkir.</p>
             </p>
           </div>
         </div>
