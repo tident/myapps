@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
-type InvoiceItem = {
+type Item = {
+  item_code: string;
+  item_name: string;
+  price: string;
+};
+
+type InvoiceRow = {
   item_code: string;
   item_name: string;
   price: number;
@@ -13,422 +17,410 @@ type InvoiceItem = {
   amount: number;
 };
 
-type InvoiceData = {
-  invoice_id: string;
-  invoice_number: string;
-  billed_to: string;
-  date: string;
-  sub_total: string;
-  total_amount: string;
-  items_json: string;
-};
-
-type Settings = {
-  bank: string;
-  account_name: string;
-  account_number: string;
-  wa_number: string;
-  ig_handle: string;
-};
-
-// MAKSIMAL 12 ITEM PER HALAMAN
-const ITEMS_PER_PAGE = 16;
-
-export default function InvoiceDetailPage() {
+export default function EditInvoicePage() {
   const router = useRouter();
   const params = useParams();
   const invoiceId = params.id as string;
+  
+  const [masterItems, setMasterItems] = useState<Item[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(true);
 
-  const [invoice, setInvoice] = useState<InvoiceData | null>(null);
-  const [items, setItems] = useState<InvoiceItem[]>([]);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [billedTo, setBilledTo] = useState("");
+  const [date, setDate] = useState("");
+  const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
+  const [shippingCost, setShippingCost] = useState(""); // State Ongkir
+  
+  const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const [activeDropdownIndex, setActiveDropdownIndex] = useState<number | null>(null);
+  const [searchItemText, setSearchItemText] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    fetchMasterItems();
     fetchInvoiceData();
   }, [invoiceId]);
 
-  async function fetchInvoiceData() {
-    setIsLoading(true);
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setActiveDropdownIndex(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function showToast(type: "success" | "error", message: string) {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function fetchMasterItems() {
+    setIsLoadingItems(true);
     try {
       const backendUrl = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
       if (!backendUrl) throw new Error("URL backend tidak ditemukan.");
 
-      const invoiceRes = await fetch(`${backendUrl}?action=getInvoices`, { method: "GET" });
-      const invoiceResult = await invoiceRes.json();
-      
-      if (invoiceResult.status === "success") {
-        const rows = invoiceResult.data.slice(1);
+      const response = await fetch(`${backendUrl}?action=getItems`, { method: "GET" });
+      const result = await response.json();
+
+      if (result.status === "success") {
+        const rows = result.data.slice(1);
+        const formattedItems = rows
+          .filter((row: any) => row[0])
+          .map((row: any) => ({
+            item_code: row[0],
+            item_name: row[1],
+            price: row[2].toString(),
+          }));
+        setMasterItems(formattedItems);
+      }
+    } catch (error) {
+      console.error("Gagal mengambil master item:", error);
+    } finally {
+      setIsLoadingItems(false);
+    }
+  }
+
+  async function fetchInvoiceData() {
+    setIsLoadingInvoice(true);
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+      if (!backendUrl) throw new Error("URL backend tidak ditemukan.");
+
+      const response = await fetch(`${backendUrl}?action=getInvoices`, { method: "GET" });
+      const result = await response.json();
+
+      if (result.status === "success") {
+        const rows = result.data.slice(1);
         const found = rows.find((row: any) => row[0].toString() === invoiceId);
         
         if (found) {
-          const invData = {
-            invoice_id: found[0],
-            invoice_number: found[1],
-            billed_to: found[2],
-            date: found[3],
-            sub_total: found[4],
-            total_amount: found[5],
-            items_json: found[6],
-          };
-          setInvoice(invData);
-          setItems(JSON.parse(invData.items_json));
+          setBilledTo(found[2]);
+          // Ubah format date menjadi YYYY-MM-DD agar bisa dibaca input type="date"
+          const d = new Date(found[3]);
+          setDate(isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0]);
+          setInvoiceRows(JSON.parse(found[6]));
+          setShippingCost((found[10] || "0").toString()); // Ambil Ongkir dari index 10
         }
       }
-
-      const settingsRes = await fetch(`${backendUrl}?action=getInvoiceSettings`, { method: "GET" });
-      const settingsResult = await settingsRes.json();
-      
-      if (settingsResult.status === "success") {
-        setSettings(settingsResult.data);
-      }
-
     } catch (error) {
-      console.error("Gagal mengambil data:", error);
+      console.error("Gagal mengambil data invoice:", error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingInvoice(false);
+    }
+  }
+
+  function addRow() {
+    setInvoiceRows([
+      ...invoiceRows,
+      { item_code: "", item_name: "", price: 0, quantity: 1, amount: 0 },
+    ]);
+  }
+
+  function removeRow(index: number) {
+    const newRows = [...invoiceRows];
+    newRows.splice(index, 1);
+    setInvoiceRows(newRows);
+  }
+
+  function handleItemSelect(index: number, selectedItem: Item) {
+    const newRows = [...invoiceRows];
+    newRows[index] = {
+      ...newRows[index],
+      item_code: selectedItem.item_code,
+      item_name: selectedItem.item_name,
+      price: Number(selectedItem.price),
+      amount: Number(selectedItem.price) * newRows[index].quantity,
+    };
+    setInvoiceRows(newRows);
+    setActiveDropdownIndex(null);
+    setSearchItemText("");
+  }
+
+  function handleQuantityChange(index: number, qty: number) {
+    const newRows = [...invoiceRows];
+    const validQty = qty < 1 ? 1 : qty;
+    newRows[index] = {
+      ...newRows[index],
+      quantity: validQty,
+      amount: newRows[index].price * validQty,
+    };
+    setInvoiceRows(newRows);
+  }
+
+  const filteredMasterItems = masterItems.filter((item) =>
+    item.item_name.toLowerCase().includes(searchItemText.toLowerCase()) ||
+    item.item_code.toLowerCase().includes(searchItemText.toLowerCase())
+  );
+
+  // KALKULASI TOTAL (SubTotal + Ongkir)
+  const subTotal = invoiceRows.reduce((sum, row) => sum + row.amount, 0);
+  const parsedShippingCost = parseFloat(shippingCost) || 0;
+  const totalAmount = subTotal + parsedShippingCost;
+
+  async function handleUpdateInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!billedTo) {
+      showToast("error", "Billed To wajib diisi!");
+      return;
+    }
+    if (invoiceRows.length === 0) {
+      showToast("error", "Tambahkan minimal 1 item!");
+      return;
+    }
+    const hasEmptyRow = invoiceRows.some((row) => !row.item_code);
+    if (hasEmptyRow) {
+      showToast("error", "Ada baris yang belum dipilih itemnya!");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const backendUrl = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+      if (!backendUrl) throw new Error("URL backend tidak ditemukan.");
+
+      const bodyData = new URLSearchParams();
+      bodyData.append("action", "updateInvoice");
+      bodyData.append("invoice_id", invoiceId);
+      bodyData.append("billed_to", billedTo);
+      bodyData.append("date", date);
+      bodyData.append("sub_total", subTotal.toString());
+      bodyData.append("total_amount", totalAmount.toString());
+      bodyData.append("items_json", JSON.stringify(invoiceRows));
+      bodyData.append("shipping_cost", parsedShippingCost.toString()); // Kirim Ongkir
+
+      const response = await fetch(backendUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: bodyData.toString(),
+      });
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        showToast("success", "Invoice berhasil diperbarui!");
+        router.push(`/dashboard/rasarasabyrania/invoice/${invoiceId}`);
+      } else {
+        showToast("error", data.message || "Gagal memperbarui invoice.");
+      }
+    } catch (error) {
+      showToast("error", "Terjadi kesalahan jaringan.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
   const formatRupiah = (angka: number) => {
-    return `Rp ${new Intl.NumberFormat("id-ID").format(angka)}`;
+    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(angka);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "-";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      });
-    } catch (error) {
-      return dateString;
-    }
-  };
-
-  const renderPage = (pageIndex: number, pageItems: InvoiceItem[], isLastPage: boolean) => {
-    const isFirstPage = pageIndex === 0;
-
-    return (
-      <div 
-        key={pageIndex}
-        className="invoice-page" 
-        style={{ 
-          width: "800px", 
-          height: "1000px",
-          padding: "40px 50px", 
-          backgroundColor: "#ffffff",
-          position: "relative",
-          boxSizing: "border-box",
-          fontFamily: "'Inter', 'Montserrat', sans-serif",
-          color: "#000000",
-          display: "flex",
-          flexDirection: "column",
-          marginBottom: "20px" 
-        }}
-      >
-        <div style={{ flex: 1 }}>
-          {isFirstPage ? (
-            <>
-              {/* HEADER CONTAINER */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", position: "relative" }}>
-                <div>
-                  {/* LOGO KIRI (POSISI DIESUAIKAN AGAR NAIK & KEKIRI) */}
-                  <div style={{ position: "absolute", top: "-25px", left: "-20px" }}>
-                    <img src="/rasarasalogo.png" alt="Logo" style={{ width: "200px", height: "auto" }} />
-                  </div>
-                </div>
-
-                <div style={{ textAlign: "right" }}>
-                  <h1 style={{ fontSize: "26px", fontWeight: "900", margin: "0 0 4px 0", letterSpacing: "1px" }}>
-                    <span style={{ color: "#2b39b0" }}>RASARASA </span>
-                    <span style={{ color: "#e88bb9" }}>BYRANIA</span>
-                  </h1>
-                  
-                  <div style={{ fontSize: "13px", fontWeight: "600", marginBottom: "10px", color: "#000000" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginBottom: "4px" }}>
-                      <img src="/logoig.png" alt="IG" style={{ width: "15px", height: "15px", display: "block"}} />
-                      <span>{settings?.ig_handle || "@rasarasabyrania"}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px" }}>
-                      <img src="/logowa.png" alt="WA" style={{ width: "15px", height: "15px", display: "block" }} />
-                      <span>{settings?.wa_number || "08170765594"}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h2 style={{ fontSize: "32px", fontWeight: "900", margin: 0, letterSpacing: "2px", lineHeight: "1" }}>INVOICE</h2>
-                    <p style={{ fontSize: "23px", fontWeight: "900", margin: "2px 0 0 0" }}>#{invoice?.invoice_number.replace("#", "")}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* BILLED TO, DATE & INFO BANK */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "15px" }}>
-                <div style={{ fontSize: "14px", fontWeight: "700" }}>
-                  <div style={{ display: "flex", marginBottom: "4px", alignItems: "center" }}>
-                    <span style={{ width: "110px", fontWeight: "900", letterSpacing: "1px" }}>BILLED TO</span>
-                    <span style={{ width: "16px" }}>:</span>
-                    <span>{invoice?.billed_to}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <span style={{ width: "110px", fontWeight: "900", letterSpacing: "1px" }}>DATE</span>
-                    <span style={{ width: "16px" }}>:</span>
-                    <span>{formatDate(invoice?.date || "")}</span>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: "right", fontSize: "14px", fontWeight: "500", lineHeight: "1.3" }}>
-                  <div style={{ fontSize: "16px", fontWeight: "600" }}>{settings?.bank || "BCA"}</div>
-                  <div style={{ fontWeight: "600", fontSize: "15px" }}>{settings?.account_number || "5271385456"}</div>
-                  <div style={{ fontWeight: "500" }}>{settings?.account_name || "Rania Kemala Ayu"}</div>
-                </div>
-              </div>
-            </>
-          ) : (
-             <div style={{ height: "25px" }}></div>
-          )}
-
-          {/* TABEL ITEM */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10px", tableLayout: "fixed" }}>
-            <thead>
-              <tr style={{ borderTop: "2px solid #000000", borderBottom: "3px solid #000000" }}>
-                <th style={{ padding: "8px 0", textAlign: "left", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "40%" }}>ITEM</th>
-                <th style={{ padding: "8px 0", textAlign: "center", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "18%" }}>PRICE</th>
-                <th style={{ padding: "8px 0", textAlign: "center", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "14%" }}>QUANTITY</th>
-                <th style={{ padding: "8px 0", textAlign: "right", fontSize: "14px", fontWeight: "900", letterSpacing: "1px", width: "28%" }}>AMOUNT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageItems.map((item, index) => (
-                <tr key={index} style={{ borderBottom: "1px solid #d1d5db" }}>
-                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#111827", fontWeight: "500" }}>{item.item_name}</td>
-                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#374151", textAlign: "center", fontWeight: "400" }}>{formatRupiah(item.price)}</td>
-                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#374151", textAlign: "center", fontWeight: "400" }}>{item.quantity}</td>
-                  <td style={{ padding: "6px 0", fontSize: "14px", color: "#374151", textAlign: "right", fontWeight: "400" }}>{formatRupiah(item.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* SUB-TOTAL & TOTAL (HANYA MUNCUL DI HALAMAN TERAKHIR) */}
-          {isLastPage && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginTop: "12px" }}>
-              <div style={{ width: "280px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "6px", fontSize: "13px", color: "#4b5563", fontWeight: "400" }}>
-                  <span>Sub-Total</span>
-                  <span>{formatRupiah(Number(invoice?.sub_total))}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #000000", paddingTop: "6px" }}>
-                  <span style={{ fontSize: "16px", fontWeight: "900", letterSpacing: "1px" }}>TOTAL</span>
-                  <span style={{ fontSize: "16px", fontWeight: "900" }}>{formatRupiah(Number(invoice?.total_amount))}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  async function handleDownloadPDF() {
-    if (!invoice) return;
-    setIsGeneratingPDF(true);
-
-    try {
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-
-      // BAGI ITEMS SETIAP 12 ITEM PER HALAMAN
-      const pages = [];
-      for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
-        pages.push(items.slice(i, i + ITEMS_PER_PAGE));
-      }
-
-      const container = document.createElement("div");
-      container.style.position = "absolute";
-      container.style.top = "-9999px";
-      container.style.left = "-9999px";
-      document.body.appendChild(container);
-
-      for (let i = 0; i < pages.length; i++) {
-        const pageItems = pages[i];
-        const isLastPage = i === pages.length - 1;
-        
-        const tempDiv = document.createElement("div");
-        tempDiv.style.width = "800px";
-        
-        const htmlString = `
-          <div style="width: 800px; height: 1000px; padding: 40px 50px; background-color: #ffffff; position: relative; box-sizing: border-box; font-family: 'Inter', 'Montserrat', sans-serif; color: #000000; display: flex; flex-direction: column;">
-            <div style="flex: 1;">
-              ${i === 0 ? `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative;">
-                  <div>
-                    <div style="position: absolute; top: -25px; left: -20px;">
-                      <img src="/rasarasalogo.png" style="width: 200px; height: auto;" />
-                    </div>
-                  </div>
-                  <div style="text-align: right;">
-                    <h1 style="font-size: 26px; font-weight: 900; margin: 0 0 4px 0; letter-spacing: 1px;">
-                      <span style="color: #2b39b0;">RASARASA </span>
-                      <span style="color: #e88bb9;">BYRANIA</span>
-                    </h1>
-                    <div style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #000000;">
-                      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 10px;">
-                        <img src="/logoig.png" style="width: 15px; height: 15px; display: block; margin-bottom: -18px;" />
-                        <span>${settings?.ig_handle || "@rasarasabyrania" }</span>
-                      </div>
-                      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
-                        <img src="/logowa.png" style="width: 15px; height: 15px; display: block; margin-bottom: -13px;" />
-                        <span>${settings?.wa_number || "08170765594"}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <h2 style="font-size: 32px; font-weight: 900; margin: 0; letter-spacing: 2px; line-height: 1;">INVOICE</h2>
-                      <p style="font-size: 22px; font-weight: 900; margin: 2px 0 0 0;">#${invoice.invoice_number.replace("#", "")}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
-                  <div style="font-size: 14px; font-weight: 700;">
-                    <div style="display: flex; margin-bottom: 4px; align-items: center;">
-                      <span style="width: 110px; font-weight: 900; letter-spacing: 1px;">BILLED TO</span>
-                      <span style="width: 16px;">:</span>
-                      <span>${invoice.billed_to}</span>
-                    </div>
-                    <div style="display: flex; align-items: center;">
-                      <span style="width: 110px; font-weight: 900; letter-spacing: 1px;">DATE</span>
-                      <span style="width: 16px;">:</span>
-                      <span>${formatDate(invoice.date)}</span>
-                    </div>
-                  </div>
-                  <div style="text-align: right; font-size: 14px; font-weight: 500; line-height: 1.3;">
-                    <div style="font-size: 16px; font-weight: 600;">${settings?.bank || "BCA"}</div>
-                    <div style="font-weight: 600; font-size: 15px;">${settings?.account_number || "5271385456"}</div>
-                    <div style="font-weight: 500;">${settings?.account_name || "Rania Kemala Ayu"}</div>
-                  </div>
-                </div>
-              ` : '<div style="height: 25px;"></div>'}
-
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed;">
-                <thead>
-                  <tr style="border-top: 2px solid #000000; border-bottom: 3.5px solid #000000;">
-                    <th style="padding: 8px 0; text-align: left; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 40%;">ITEM</th>
-                    <th style="padding: 8px 0; text-align: center; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 18%;">PRICE</th>
-                    <th style="padding: 8px 0; text-align: center; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 14%;">QUANTITY</th>
-                    <th style="padding: 8px 0; text-align: right; font-size: 14px; font-weight: 900; letter-spacing: 1px; width: 28%;">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pageItems.map(item => `
-                    <tr style="border-bottom: 1px solid #d1d5db;">
-                      <td style="padding: 6px 0; font-size: 14px; color: #111827; font-weight: 500;">${item.item_name}</td>
-                      <td style="padding: 6px 0; font-size: 14px; color: #374151; text-align: center; font-weight: 400;">${formatRupiah(item.price)}</td>
-                      <td style="padding: 6px 0; font-size: 14px; color: #374151; text-align: center; font-weight: 400;">${item.quantity}</td>
-                      <td style="padding: 6px 0; font-size: 14px; color: #374151; text-align: right; font-weight: 400;">${formatRupiah(item.amount)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-
-              ${isLastPage ? `
-                <div style="display: flex; flex-direction: column; align-items: flex-end; margin-top: 12px;">
-                  <div style="width: 280px; margin-left: auto;">
-                    <div style="display: flex; justify-content: space-between; padding-bottom: 6px; font-size: 13px; color: #4b5563; font-weight: 400;">
-                      <span>Sub-Total</span>
-                      <span>${formatRupiah(Number(invoice.sub_total))}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; border-top: 2px solid #000000; padding-top: 6px;">
-                      <span style="font-size: 16px; font-weight: 900; letter-spacing: 1px;">TOTAL</span>
-                      <span style="font-size: 16px; font-weight: 900;">${formatRupiah(Number(invoice.total_amount))}</span>
-                    </div>
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-        `;
-
-        tempDiv.innerHTML = htmlString;
-        container.appendChild(tempDiv);
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        const canvas = await html2canvas(tempDiv, { 
-          scale: 2, 
-          useCORS: true, 
-          backgroundColor: "#ffffff",
-          width: 800,
-          windowWidth: 800
-        });
-        
-        const imgData = canvas.toDataURL("image/png");
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight);
-        
-        container.removeChild(tempDiv);
-      }
-
-      document.body.removeChild(container);
-      pdf.save(`Invoice#${invoice.invoice_number.replace("#", "")}.pdf`);
-    } catch (error) {
-      console.error("Gagal generate PDF:", error);
-      alert("Gagal membuat PDF. Silakan periksa console untuk detail.");
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  }
-
-  if (isLoading) {
+  if (isLoadingInvoice) {
     return (
       <div className="flex h-full min-h-[60vh] flex-col items-center justify-center space-y-4">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
-        <p className="text-slate-500 font-medium">Memuat detail invoice...</p>
+        <p className="text-slate-500 font-medium">Memuat data invoice...</p>
       </div>
     );
   }
 
-  if (!invoice) {
-    return <div className="text-center text-slate-500 py-10">Invoice tidak ditemukan.</div>;
-  }
-
-  const pagesPreview = [];
-  for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
-    pagesPreview.push(items.slice(i, i + ITEMS_PER_PAGE));
-  }
-
   return (
-    <div className="space-y-6 max-w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-4 sm:px-0">
-        <button onClick={() => router.push("/dashboard/rasarasabyrania/invoice")} className="text-sm font-medium text-slate-500 hover:text-slate-800 cursor-pointer">
-          &larr; Kembali ke Daftar Invoice
-        </button>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={isGeneratingPDF}
-          className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center space-x-2 w-full sm:w-auto"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
-          <span>{isGeneratingPDF ? "Memproses..." : "Download PDF"}</span>
-        </button>
+    <div className="max-w-4xl space-y-6">
+      {toast && (
+        <div className={`fixed right-6 top-20 z-50 rounded-lg px-6 py-3 text-sm font-medium shadow-lg transition-all ${
+          toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Edit Invoice</h1>
+        <p className="text-slate-500">Perbarui detail tagihan.</p>
       </div>
 
-      <div className="w-full overflow-x-auto pb-4 bg-slate-50 rounded-xl border border-slate-200">
-        <div className="flex flex-col items-center min-w-[850px] p-4">
-          {pagesPreview.map((pageItems, index) => {
-            const isLastPage = index === pagesPreview.length - 1;
-            return renderPage(index, pageItems, isLastPage);
-          })}
+      <form onSubmit={handleUpdateInvoice} className="space-y-6">
+        
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Billed To</label>
+              <input
+                type="text"
+                value={billedTo}
+                onChange={(e) => setBilledTo(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Tanggal Invoice</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          </div>
         </div>
-      </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-bold text-slate-800">Detail Item</h3>
+          
+          <div className="space-y-3">
+            {invoiceRows.map((row, index) => (
+              <div key={index} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-start">
+                
+                <div className="flex-1 relative" ref={activeDropdownIndex === index ? dropdownRef : null}>
+                  <label className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">Pilih Item</label>
+                  
+                  <div 
+                    onClick={() => {
+                      setActiveDropdownIndex(activeDropdownIndex === index ? null : index);
+                      setSearchItemText("");
+                    }}
+                    className="w-full cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-500 flex justify-between items-center"
+                  >
+                    <span className={row.item_name ? "text-slate-800" : "text-slate-400"}>
+                      {row.item_name || "-- Pilih Item --"}
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 text-slate-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </div>
+
+                  {activeDropdownIndex === index && (
+                    <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                      <div className="p-2 border-b border-slate-100">
+                        <input
+                          type="text"
+                          value={searchItemText}
+                          onChange={(e) => setSearchItemText(e.target.value)}
+                          placeholder="Cari item..."
+                          className="w-full rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-indigo-500"
+                          autoFocus
+                        />
+                      </div>
+                      <ul className="max-h-48 overflow-y-auto text-sm">
+                        {filteredMasterItems.length === 0 ? (
+                          <li className="px-3 py-2 text-slate-500">Item tidak ditemukan</li>
+                        ) : (
+                          filteredMasterItems.map((item) => (
+                            <li 
+                              key={item.item_code}
+                              onClick={() => handleItemSelect(index, item)}
+                              className="cursor-pointer px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700"
+                            >
+                              {item.item_name}
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full sm:w-32">
+                  <label className="mb-1 block text-xs font-medium text-slate-500">Harga</label>
+                  <input
+                    type="text"
+                    value={formatRupiah(row.price)}
+                    disabled
+                    className="w-full rounded-md border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm text-slate-500"
+                  />
+                </div>
+
+                <div className="w-full sm:w-24">
+                  <label className="mb-1 block text-xs font-medium text-slate-500">Qty</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={row.quantity}
+                    onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 1)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="w-full sm:w-32">
+                  <label className="mb-1 block text-xs font-medium text-slate-500">Amount</label>
+                  <input
+                    type="text"
+                    value={formatRupiah(row.amount)}
+                    disabled
+                    className="w-full rounded-md border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeRow(index)}
+                  className="mt-4 sm:mt-5 cursor-pointer rounded-md p-2 text-red-500 hover:bg-red-50"
+                  title="Hapus Baris"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addRow}
+            className="mt-4 flex w-full items-center justify-center rounded-lg border border-dashed border-indigo-300 bg-indigo-50 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100 cursor-pointer"
+          >
+            + Tambah Item
+          </button>
+        </div>
+
+        {/* SECTION TOTAL & ONGKIR */}
+        <div className="flex flex-col items-end space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          
+          {/* INPUT ONGKIR */}
+          <div className="flex w-full items-center justify-between border-b border-slate-200 pb-2 sm:w-64">
+            <span className="text-sm text-slate-500">Ongkir (Rp)</span>
+            <input
+              type="number"
+              value={shippingCost}
+              onChange={(e) => setShippingCost(e.target.value)}
+              placeholder="0"
+              className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          <div className="flex w-full items-center justify-between border-b border-slate-200 pb-2 sm:w-64">
+            <span className="text-sm text-slate-500">Sub-Total</span>
+            <span className="font-semibold text-slate-800">{formatRupiah(subTotal)}</span>
+          </div>
+          <div className="flex w-full items-center justify-between pt-2 sm:w-64">
+            <span className="text-lg font-bold text-slate-800">TOTAL</span>
+            <span className="text-xl font-bold text-indigo-600">{formatRupiah(totalAmount)}</span>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            disabled={isSaving}
+            className="cursor-pointer rounded-lg border border-slate-300 px-6 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving || isLoadingItems}
+            className="cursor-pointer rounded-lg bg-indigo-600 px-6 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+        </div>
+
+      </form>
     </div>
   );
 }

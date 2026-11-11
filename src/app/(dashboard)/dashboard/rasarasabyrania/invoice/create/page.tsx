@@ -20,20 +20,17 @@ type InvoiceRow = {
 export default function CreateInvoicePage() {
   const router = useRouter();
   
-  // State untuk Data Master
   const [masterItems, setMasterItems] = useState<Item[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
 
-  // State Form Invoice
   const [billedTo, setBilledTo] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
+  const [shippingCost, setShippingCost] = useState(""); // State untuk Ongkir
   
-  // State untuk Loading Simpan
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // State untuk Searchable Dropdown
   const [activeDropdownIndex, setActiveDropdownIndex] = useState<number | null>(null);
   const [searchItemText, setSearchItemText] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -42,7 +39,6 @@ export default function CreateInvoicePage() {
     fetchMasterItems();
   }, []);
 
-  // Menutup dropdown jika klik di luar area
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -86,7 +82,6 @@ export default function CreateInvoicePage() {
     }
   }
 
-  // === LOGIKA BARIS ITEM DINAMIS ===
   function addRow() {
     setInvoiceRows([
       ...invoiceRows,
@@ -125,17 +120,16 @@ export default function CreateInvoicePage() {
     setInvoiceRows(newRows);
   }
 
-  // Filter master item berdasarkan input pencarian
   const filteredMasterItems = masterItems.filter((item) =>
     item.item_name.toLowerCase().includes(searchItemText.toLowerCase()) ||
     item.item_code.toLowerCase().includes(searchItemText.toLowerCase())
   );
 
-  // === KALKULASI TOTAL ===
+  // KALKULASI TOTAL (SubTotal + Ongkir)
   const subTotal = invoiceRows.reduce((sum, row) => sum + row.amount, 0);
-  const totalAmount = subTotal; 
+  const parsedShippingCost = parseFloat(shippingCost) || 0;
+  const totalAmount = subTotal + parsedShippingCost;
 
-  // === SIMPAN INVOICE ===
   async function handleSaveInvoice(e: React.FormEvent) {
     e.preventDefault();
     if (!billedTo) {
@@ -164,6 +158,7 @@ export default function CreateInvoicePage() {
       bodyData.append("sub_total", subTotal.toString());
       bodyData.append("total_amount", totalAmount.toString());
       bodyData.append("items_json", JSON.stringify(invoiceRows));
+      bodyData.append("shipping_cost", parsedShippingCost.toString()); // Kirim Ongkir
 
       const response = await fetch(backendUrl, {
         method: "POST",
@@ -207,7 +202,6 @@ export default function CreateInvoicePage() {
 
       <form onSubmit={handleSaveInvoice} className="space-y-6">
         
-        {/* Info Pelanggan */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -232,19 +226,14 @@ export default function CreateInvoicePage() {
           </div>
         </div>
 
-        {/* Tabel Item Dinamis */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-bold text-slate-800">Detail Item</h3>
           
           <div className="space-y-3">
             {invoiceRows.map((row, index) => (
               <div key={index} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-start">
-                
-                {/* Searchable Dropdown Pilih Item */}
                 <div className="flex-1 relative" ref={activeDropdownIndex === index ? dropdownRef : null}>
                   <label className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">Pilih Item</label>
-                  
-                  {/* Tampilan Input (jika belum dipilih) */}
                   <div 
                     onClick={() => {
                       setActiveDropdownIndex(activeDropdownIndex === index ? null : index);
@@ -260,7 +249,6 @@ export default function CreateInvoicePage() {
                     </svg>
                   </div>
 
-                  {/* Dropdown Search List */}
                   {activeDropdownIndex === index && (
                     <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
                       <div className="p-2 border-b border-slate-100">
@@ -292,7 +280,6 @@ export default function CreateInvoicePage() {
                   )}
                 </div>
 
-                {/* Harga (Read Only) */}
                 <div className="w-full sm:w-32">
                   <label className="mb-1 block text-xs font-medium text-slate-500">Harga</label>
                   <input
@@ -303,7 +290,6 @@ export default function CreateInvoicePage() {
                   />
                 </div>
 
-                {/* Quantity */}
                 <div className="w-full sm:w-24">
                   <label className="mb-1 block text-xs font-medium text-slate-500">Qty</label>
                   <input
@@ -315,7 +301,6 @@ export default function CreateInvoicePage() {
                   />
                 </div>
 
-                {/* Amount (Read Only) */}
                 <div className="w-full sm:w-32">
                   <label className="mb-1 block text-xs font-medium text-slate-500">Amount</label>
                   <input
@@ -326,7 +311,6 @@ export default function CreateInvoicePage() {
                   />
                 </div>
 
-                {/* Tombol Hapus Baris */}
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
@@ -350,8 +334,21 @@ export default function CreateInvoicePage() {
           </button>
         </div>
 
-        {/* Total & Aksi Simpan */}
+        {/* SECTION TOTAL & ONGKIR */}
         <div className="flex flex-col items-end space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          
+          {/* INPUT ONGKIR */}
+          <div className="flex w-full items-center justify-between border-b border-slate-200 pb-2 sm:w-64">
+            <span className="text-sm text-slate-500">Ongkir (Rp)</span>
+            <input
+              type="number"
+              value={shippingCost}
+              onChange={(e) => setShippingCost(e.target.value)}
+              placeholder="0"
+              className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+
           <div className="flex w-full items-center justify-between border-b border-slate-200 pb-2 sm:w-64">
             <span className="text-sm text-slate-500">Sub-Total</span>
             <span className="font-semibold text-slate-800">{formatRupiah(subTotal)}</span>
