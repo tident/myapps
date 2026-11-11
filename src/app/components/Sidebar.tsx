@@ -72,7 +72,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                   alt="Logo" 
                   width={45} 
                   height={35} 
-                  className="rounded-md object-contain"
+                  className="rounded-md object-contain w-auto h-auto"
                 />
                 <span className="text-xl font-bold text-indigo-600 whitespace-nowrap">Piw Project</span>
               </>
@@ -217,7 +217,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
         {/* Footer Sidebar */}
         <div className={`border-t border-slate-200 p-4 text-xs text-slate-400 ${isCollapsed ? "text-center" : ""}`}>
-          {isCollapsed ? "v15.00" : "Version 15.00"}
+          {isCollapsed ? "v15.10" : "Version 15.10"}
         </div>
       </aside>
     </>
