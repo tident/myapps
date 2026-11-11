@@ -217,7 +217,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
         {/* Footer Sidebar */}
         <div className={`border-t border-slate-200 p-4 text-xs text-slate-400 ${isCollapsed ? "text-center" : ""}`}>
-          {isCollapsed ? "v15.10" : "Version 15.10"}
+          {isCollapsed ? "v15.20" : "Version 15.20"}
         </div>
       </aside>
     </>

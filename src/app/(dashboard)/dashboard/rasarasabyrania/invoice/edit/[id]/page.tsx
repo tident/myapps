@@ -29,6 +29,7 @@ export default function EditInvoicePage() {
   const [billedTo, setBilledTo] = useState("");
   const [date, setDate] = useState("");
   const [invoiceRows, setInvoiceRows] = useState<InvoiceRow[]>([]);
+  const [shippingCost, setShippingCost] = useState(""); // State Ongkir
   
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -103,6 +104,7 @@ export default function EditInvoicePage() {
           const d = new Date(found[3]);
           setDate(isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0]);
           setInvoiceRows(JSON.parse(found[6]));
+          setShippingCost((found[10] || "0").toString()); // Ambil Ongkir dari index 10
         }
       }
     } catch (error) {
@@ -155,8 +157,10 @@ export default function EditInvoicePage() {
     item.item_code.toLowerCase().includes(searchItemText.toLowerCase())
   );
 
+  // KALKULASI TOTAL (SubTotal + Ongkir)
   const subTotal = invoiceRows.reduce((sum, row) => sum + row.amount, 0);
-  const totalAmount = subTotal; 
+  const parsedShippingCost = parseFloat(shippingCost) || 0;
+  const totalAmount = subTotal + parsedShippingCost;
 
   async function handleUpdateInvoice(e: React.FormEvent) {
     e.preventDefault();
@@ -187,6 +191,7 @@ export default function EditInvoicePage() {
       bodyData.append("sub_total", subTotal.toString());
       bodyData.append("total_amount", totalAmount.toString());
       bodyData.append("items_json", JSON.stringify(invoiceRows));
+      bodyData.append("shipping_cost", parsedShippingCost.toString()); // Kirim Ongkir
 
       const response = await fetch(backendUrl, {
         method: "POST",
@@ -372,7 +377,21 @@ export default function EditInvoicePage() {
           </button>
         </div>
 
+        {/* SECTION TOTAL & ONGKIR */}
         <div className="flex flex-col items-end space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          
+          {/* INPUT ONGKIR */}
+          <div className="flex w-full items-center justify-between border-b border-slate-200 pb-2 sm:w-64">
+            <span className="text-sm text-slate-500">Ongkir (Rp)</span>
+            <input
+              type="number"
+              value={shippingCost}
+              onChange={(e) => setShippingCost(e.target.value)}
+              placeholder="0"
+              className="w-32 rounded-md border border-slate-300 px-2 py-1 text-right text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+
           <div className="flex w-full items-center justify-between border-b border-slate-200 pb-2 sm:w-64">
             <span className="text-sm text-slate-500">Sub-Total</span>
             <span className="font-semibold text-slate-800">{formatRupiah(subTotal)}</span>

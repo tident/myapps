@@ -14,7 +14,7 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
           <span className="flex h-3 w-3 rounded-full bg-green-500 mr-3 animate-pulse"></span>
-          What's New (Version-13.50)
+          What's New (Version-15.20)
         </h2>
         
         {/* INFO ALERT (TAMBAHAN BARU) */}
@@ -29,6 +29,7 @@ export default function DashboardPage() {
             <p className="mt-1 text-sm text-indigo-700">
               {/* ANDA BISA MENGUBAH TEKS INI SESUAI KEBUTUHAN */}
               Fitur baru telah ditambahkan! Silakan cek menu Rasarasabyrania untuk melihat pembaruan pada pembuatan Invoice PDF dan pengaturan profit. Pastikan Anda sudah melakukan refresh halaman.
+              <p>Ada pembaharuan untuk penambahan ongkir.</p>
             </p>
           </div>
         </div>
